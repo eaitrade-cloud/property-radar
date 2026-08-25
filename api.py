@@ -4,16 +4,13 @@ from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
 
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({
-        "status": "ok",
-        "service": "Property Radar API"
-    })
+    return app.send_static_file("index.html")
 
 
 @app.route("/api/scan", methods=["POST"])
