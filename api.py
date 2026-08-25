@@ -1,80 +1,244 @@
+import json
 import re
 import requests
 from bs4 import BeautifulSoup
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=".", static_url_path="")
 CORS(app)
 
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({
-        "status": "ok",
-        "service": "Property Radar API"
-    })
+    return app.send_static_file("index.html")
 
 
-def clean_text(text):
-    return re.sub(r"\s+", " ", text or "").strip()
+def clean_text(value):
+    if value is None:
+        return ""
+
+    return re.sub(r"\s+", " ", str(value)).strip()
 
 
-def extract_number(value):
-    if not value:
+def digits_to_int(value):
+    if value is None:
         return None
 
-    value = value.replace("\xa0", " ")
-    numbers = re.findall(r"\d[\d\s.,]*", value)
+    text = clean_text(value)
 
-    if not numbers:
+    match = re.search(r"\d[\d\s.,]*", text)
+
+    if not match:
         return None
 
-    number = numbers[0]
-    number = re.sub(r"[^\d]", "", number)
+    digits = re.sub(r"[^\d]", "", match.group(0))
+
+    if not digits:
+        return None
 
     try:
-        return int(number)
+        return int(digits)
     except ValueError:
         return None
 
 
-def extract_price(text):
-    patterns = [
-        r"(\d[\d\s.,]{2,})\s*(?:MAD|DH|DHS)",
-        r"(?:MAD|DH|DHS)\s*(\d[\d\s.,]{2,})",
-        r"(\d[\d\s.,]{2,})\s*درهم"
+def get_meta(soup, name=None, prop=None):
+    tag = None
+
+    if name:
+        tag = soup.find(
+            "meta",
+            attrs={"name": name}
+        )
+
+    if not tag and prop:
+        tag = soup.find(
+            "meta",
+            attrs={"property": prop}
+        )
+
+    if tag:
+        return clean_text(
+            tag.get("content", "")
+        )
+
+    return ""
+
+
+def get_json_ld(soup):
+    results = []
+
+    scripts = soup.find_all(
+        "script",
+        attrs={"type": "application/ld+json"}
+    )
+
+    for script in scripts:
+
+        raw = script.string or script.get_text()
+
+        if not raw:
+            continue
+
+        try:
+            parsed = json.loads(raw)
+
+            if isinstance(parsed, list):
+                results.extend(parsed)
+
+            elif isinstance(parsed, dict):
+
+                if "@graph" in parsed:
+                    graph = parsed.get("@graph")
+
+                    if isinstance(graph, list):
+                        results.extend(graph)
+
+                results.append(parsed)
+
+        except Exception:
+            continue
+
+    return results
+
+
+def walk_json(value):
+    if isinstance(value, dict):
+
+        yield value
+
+        for child in value.values():
+            yield from walk_json(child)
+
+    elif isinstance(value, list):
+
+        for child in value:
+            yield from walk_json(child)
+
+
+def extract_price_from_json(data):
+    possible_keys = [
+        "price",
+        "lowPrice",
+        "highPrice"
     ]
 
-    for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+    for item in walk_json(data):
 
-        if match:
-            value = extract_number(match.group(1))
+        for key in possible_keys:
 
-            if value and value >= 10000:
+            if key in item:
+
+                value = digits_to_int(
+                    item.get(key)
+                )
+
+                if value and 10000 <= value <= 1000000000:
+                    return value
+
+        offers = item.get("offers")
+
+        if isinstance(offers, dict):
+
+            value = digits_to_int(
+                offers.get("price")
+            )
+
+            if value and 10000 <= value <= 1000000000:
                 return value
 
     return None
 
 
-def extract_area(text):
+def extract_price_from_text(text):
+    patterns = [
+        r"(\d{1,3}(?:[\s,.]\d{3})+)\s*(?:MAD|DH|DHS)",
+        r"(?:MAD|DH|DHS)\s*(\d{1,3}(?:[\s,.]\d{3})+)",
+        r"(\d{5,10})\s*(?:MAD|DH|DHS)",
+        r"(\d{1,3}(?:[\s,.]\d{3})+)\s*درهم",
+        r"(\d{5,10})\s*درهم"
+    ]
+
+    for pattern in patterns:
+
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
+
+        if match:
+
+            value = digits_to_int(
+                match.group(1)
+            )
+
+            if value and 10000 <= value <= 1000000000:
+                return value
+
+    return None
+
+
+def extract_area_from_json(data):
+    area_keys = [
+        "floorSize",
+        "area",
+        "surface",
+        "size"
+    ]
+
+    for item in walk_json(data):
+
+        for key in area_keys:
+
+            if key not in item:
+                continue
+
+            value = item.get(key)
+
+            if isinstance(value, dict):
+
+                candidate = (
+                    value.get("value") or
+                    value.get("minValue") or
+                    value.get("maxValue")
+                )
+
+            else:
+                candidate = value
+
+            number = digits_to_int(candidate)
+
+            if number and 10 <= number <= 100000:
+                return number
+
+    return None
+
+
+def extract_area_from_text(text):
     patterns = [
         r"(\d{2,5})\s*m²",
-        r"(\d{2,5})\s*m2",
-        r"(\d{2,5})\s*sqm",
+        r"(\d{2,5})\s*m2\b",
+        r"(\d{2,5})\s*sqm\b",
         r"(\d{2,5})\s*م²"
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
 
         if match:
-            try:
-                area = int(match.group(1))
 
-                if 10 <= area <= 100000:
-                    return area
+            try:
+                value = int(match.group(1))
+
+                if 10 <= value <= 100000:
+                    return value
 
             except ValueError:
                 pass
@@ -85,20 +249,55 @@ def extract_area(text):
 def extract_bedrooms(text):
     patterns = [
         r"(\d+)\s*bedrooms?",
-        r"(\d+)\s*beds?",
+        r"(\d+)\s*beds?\b",
         r"(\d+)\s*chambres?",
         r"(\d+)\s*غرف"
     ]
 
     for pattern in patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
+
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
 
         if match:
-            try:
-                bedrooms = int(match.group(1))
 
-                if 1 <= bedrooms <= 30:
-                    return bedrooms
+            try:
+                value = int(match.group(1))
+
+                if 1 <= value <= 30:
+                    return value
+
+            except ValueError:
+                pass
+
+    return None
+
+
+def extract_rooms(text):
+    patterns = [
+        r"(\d+)\s*rooms?",
+        r"(\d+)\s*pièces?",
+        r"(\d+)\s*pieces?"
+    ]
+
+    for pattern in patterns:
+
+        match = re.search(
+            pattern,
+            text,
+            re.IGNORECASE
+        )
+
+        if match:
+
+            try:
+                value = int(match.group(1))
+
+                if 1 <= value <= 50:
+                    return value
 
             except ValueError:
                 pass
@@ -107,24 +306,25 @@ def extract_bedrooms(text):
 
 
 def detect_property_type(text):
-    property_types = {
-        "villa": "Villa",
-        "apartment": "Apartment",
-        "appartement": "Apartment",
-        "riad": "Riad",
-        "house": "House",
-        "maison": "House",
-        "land": "Land",
-        "terrain": "Land",
-        "studio": "Studio",
-        "duplex": "Duplex",
-        "penthouse": "Penthouse"
-    }
+    types = [
+        ("villa", "Villa"),
+        ("riad", "Riad"),
+        ("apartment", "Apartment"),
+        ("appartement", "Apartment"),
+        ("penthouse", "Penthouse"),
+        ("duplex", "Duplex"),
+        ("studio", "Studio"),
+        ("house", "House"),
+        ("maison", "House"),
+        ("land", "Land"),
+        ("terrain", "Land")
+    ]
 
-    lower_text = text.lower()
+    lower = text.lower()
 
-    for keyword, label in property_types.items():
-        if keyword in lower_text:
+    for keyword, label in types:
+
+        if keyword in lower:
             return label
 
     return None
@@ -132,33 +332,28 @@ def detect_property_type(text):
 
 def detect_city(text):
     cities = [
-        "Marrakech",
-        "Casablanca",
-        "Rabat",
-        "Tangier",
-        "Tanger",
-        "Agadir",
-        "Fes",
-        "Fez",
-        "Meknes",
-        "Tetouan",
-        "Essaouira",
-        "Kenitra",
-        "El Jadida",
-        "Oujda",
-        "Mohammedia"
+        ("marrakech", "Marrakech"),
+        ("casablanca", "Casablanca"),
+        ("rabat", "Rabat"),
+        ("tangier", "Tangier"),
+        ("tanger", "Tangier"),
+        ("agadir", "Agadir"),
+        ("fes", "Fes"),
+        ("fez", "Fes"),
+        ("meknes", "Meknes"),
+        ("tetouan", "Tetouan"),
+        ("essaouira", "Essaouira"),
+        ("kenitra", "Kenitra"),
+        ("el jadida", "El Jadida"),
+        ("oujda", "Oujda"),
+        ("mohammedia", "Mohammedia")
     ]
 
-    lower_text = text.lower()
+    lower = text.lower()
 
-    for city in cities:
-        if city.lower() in lower_text:
-            if city == "Tanger":
-                return "Tangier"
+    for keyword, city in cities:
 
-            if city == "Fez":
-                return "Fes"
-
+        if keyword in lower:
             return city
 
     return None
@@ -168,166 +363,263 @@ def calculate_price_per_m2(price, area):
     if not price or not area:
         return None
 
-    try:
-        return round(price / area)
-    except (TypeError, ZeroDivisionError):
+    if area <= 0:
         return None
+
+    return round(price / area)
 
 
 @app.route("/api/scan", methods=["POST"])
 def scan_property():
 
-    data = request.get_json(silent=True) or {}
-    url = data.get("url", "").strip()
+    payload = request.get_json(
+        silent=True
+    ) or {}
+
+    url = clean_text(
+        payload.get("url")
+    )
 
     if not url:
+
         return jsonify({
             "success": False,
             "error": "No property URL supplied."
         }), 400
 
-    if not url.startswith(("http://", "https://")):
+    if not url.startswith(
+        ("http://", "https://")
+    ):
+
         return jsonify({
             "success": False,
             "error": "Invalid property URL."
         }), 400
 
     try:
+
         headers = {
             "User-Agent": (
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/138.0.0.0 Safari/537.36"
+                "Mozilla/5.0 "
+                "(Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 "
+                "(KHTML, like Gecko) "
+                "Chrome/138.0.0.0 "
+                "Safari/537.36"
             ),
-            "Accept-Language": "en-GB,en;q=0.9,fr;q=0.8"
+            "Accept": (
+                "text/html,"
+                "application/xhtml+xml,"
+                "application/xml;q=0.9,"
+                "*/*;q=0.8"
+            ),
+            "Accept-Language":
+                "en-GB,en;q=0.9,fr;q=0.8"
         }
 
         response = requests.get(
             url,
             headers=headers,
-            timeout=15
+            timeout=20,
+            allow_redirects=True
         )
 
         response.raise_for_status()
 
-        soup = BeautifulSoup(response.text, "html.parser")
+        soup = BeautifulSoup(
+            response.text,
+            "html.parser"
+        )
 
         title = ""
 
         if soup.title:
+
             title = clean_text(
-                soup.title.get_text(" ", strip=True)
+                soup.title.get_text(
+                    " ",
+                    strip=True
+                )
             )
 
-        description = ""
-
-        description_tag = soup.find(
-            "meta",
-            attrs={"name": "description"}
+        og_title = get_meta(
+            soup,
+            prop="og:title"
         )
 
-        if description_tag:
-            description = clean_text(
-                description_tag.get("content", "")
-            )
+        if og_title:
+            title = og_title
 
-        if not description:
-            og_description = soup.find(
-                "meta",
-                attrs={"property": "og:description"}
+        description = (
+            get_meta(
+                soup,
+                name="description"
             )
-
-            if og_description:
-                description = clean_text(
-                    og_description.get("content", "")
-                )
+            or
+            get_meta(
+                soup,
+                prop="og:description"
+            )
+        )
 
         page_text = clean_text(
-            soup.get_text(" ", strip=True)
+            soup.get_text(
+                " ",
+                strip=True
+            )
         )
 
-        analysis_text = " ".join([
-            title,
-            description,
-            page_text[:20000]
-        ])
+        json_ld = get_json_ld(soup)
 
-        price = extract_price(analysis_text)
-        area = extract_area(analysis_text)
-        bedrooms = extract_bedrooms(analysis_text)
-        property_type = detect_property_type(analysis_text)
-        city = detect_city(analysis_text)
-
-        price_per_m2 = calculate_price_per_m2(
-            price,
-            area
+        combined_text = clean_text(
+            " ".join([
+                title,
+                description,
+                page_text
+            ])
         )
 
-        detected_fields = 0
+        price = (
+            extract_price_from_json(
+                json_ld
+            )
+            or
+            extract_price_from_text(
+                combined_text
+            )
+        )
 
-        for value in [
+        area = (
+            extract_area_from_json(
+                json_ld
+            )
+            or
+            extract_area_from_text(
+                combined_text
+            )
+        )
+
+        bedrooms = extract_bedrooms(
+            combined_text
+        )
+
+        rooms = extract_rooms(
+            combined_text
+        )
+
+        property_type = detect_property_type(
+            combined_text
+        )
+
+        city = detect_city(
+            combined_text
+        )
+
+        price_per_m2 = (
+            calculate_price_per_m2(
+                price,
+                area
+            )
+        )
+
+        detected = [
             price,
             area,
-            bedrooms,
             property_type,
             city
-        ]:
-            if value is not None:
-                detected_fields += 1
+        ]
 
         confidence = round(
-            (detected_fields / 5) * 100
+            (
+                sum(
+                    value is not None
+                    for value in detected
+                )
+                /
+                len(detected)
+            )
+            * 100
         )
 
         if price and area:
-            radar_status = "Ready for market analysis"
+
+            status = (
+                "READY FOR MARKET ANALYSIS"
+            )
+
         elif price:
-            radar_status = "Area required for price analysis"
+
+            status = (
+                "AREA REQUIRED"
+            )
+
         elif area:
-            radar_status = "Price not detected"
+
+            status = (
+                "PRICE NOT DETECTED"
+            )
+
         else:
-            radar_status = "Review listing"
+
+            status = (
+                "REVIEW LISTING"
+            )
 
         return jsonify({
             "success": True,
 
             "source": {
                 "url": url,
+                "final_url":
+                    response.url,
                 "title": title,
-                "description": description
+                "description":
+                    description
             },
 
             "property": {
-                "city": city,
-                "property_type": property_type,
-                "price_mad": price,
-                "area_m2": area,
-                "bedrooms": bedrooms,
-                "price_per_m2_mad": price_per_m2
+                "city":
+                    city,
+                "property_type":
+                    property_type,
+                "price_mad":
+                    price,
+                "area_m2":
+                    area,
+                "bedrooms":
+                    bedrooms,
+                "rooms":
+                    rooms,
+                "price_per_m2_mad":
+                    price_per_m2
             },
 
             "radar": {
-                "status": radar_status,
-                "data_confidence": confidence
-            },
-
-            "content": page_text[:12000]
+                "status":
+                    status,
+                "data_confidence":
+                    confidence
+            }
         })
 
     except requests.RequestException as error:
 
         return jsonify({
             "success": False,
-            "error": "Property listing could not be retrieved.",
-            "details": str(error)
+            "error":
+                "Property listing could not be retrieved.",
+            "details":
+                str(error)
         }), 502
 
     except Exception as error:
 
         return jsonify({
             "success": False,
-            "error": "Property scan failed.",
-            "details": str(error)
+            "error":
+                "Property scan failed.",
+            "details":
+                str(error)
         }), 500
 
 
