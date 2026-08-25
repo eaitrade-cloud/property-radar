@@ -1,920 +1,1285 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<title>Property Radar | Morocco Property Intelligence</title>
+  <title>Property Radar | Morocco Property Intelligence</title>
 
-<style>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
 
-body {
-  font-family: Arial, Helvetica, sans-serif;
-  background: #07111f;
-  color: white;
-}
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      background: #061321;
+      color: #ffffff;
+      min-height: 100vh;
+    }
 
-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 25px 7%;
-  border-bottom: 1px solid #223047;
-}
+    .topbar {
+      border-bottom: 1px solid #1c3448;
+      padding: 18px 7%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
 
-.logo {
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 1px;
-}
+    .logo {
+      color: #3ce6ae;
+      font-weight: 800;
+      letter-spacing: 1px;
+      font-size: 15px;
+    }
 
-.logo span {
-  color: #35e6a5;
-}
+    .top-note {
+      color: #7597b5;
+      font-size: 12px;
+    }
 
-.nav-right {
-  color: #9eafc3;
-  font-size: 14px;
-}
+    .hero {
+      padding: 70px 20px 55px;
+      text-align: center;
+      background: linear-gradient(
+        180deg,
+        #0d263d 0%,
+        #071625 100%
+      );
+    }
 
-.hero {
-  min-height: 620px;
-  padding: 95px 7% 60px;
-  text-align: center;
-  background:
-    radial-gradient(circle at 50% 20%, #173454 0%, #07111f 48%);
-}
+    .badge {
+      display: inline-block;
+      color: #3ce6ae;
+      border: 1px solid #218b70;
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 22px;
+    }
 
-.tag {
-  display: inline-block;
-  color: #35e6a5;
-  border: 1px solid #287a65;
-  background: rgba(53,230,165,.07);
-  border-radius: 50px;
-  padding: 9px 17px;
-  font-size: 12px;
-  letter-spacing: 1.5px;
-  margin-bottom: 30px;
-}
+    .hero h1 {
+      font-size: 48px;
+      line-height: 1.05;
+      max-width: 760px;
+      margin: 0 auto 18px;
+    }
 
-h1 {
-  font-size: clamp(42px,7vw,78px);
-  line-height: 1.03;
-  max-width: 950px;
-  margin: auto;
-}
+    .hero h1 span {
+      color: #3ce6ae;
+    }
 
-h1 span {
-  color: #35e6a5;
-}
+    .hero p {
+      color: #93b2ce;
+      max-width: 650px;
+      margin: 0 auto 28px;
+      line-height: 1.6;
+      font-size: 14px;
+    }
 
-.subtitle {
-  max-width: 680px;
-  margin: 25px auto 40px;
-  color: #9eafc3;
-  line-height: 1.7;
-  font-size: 18px;
-}
+    .search-box {
+      max-width: 720px;
+      margin: auto;
+      display: flex;
+      gap: 10px;
+      background: #0b1c2d;
+      border: 1px solid #29445a;
+      padding: 8px;
+      border-radius: 12px;
+    }
 
-.scanner {
-  max-width: 790px;
-  margin: auto;
-  background: #101d2e;
-  border: 1px solid #263a52;
-  border-radius: 18px;
-  padding: 12px;
-  display: flex;
-  box-shadow: 0 20px 70px rgba(0,0,0,.35);
-}
+    .search-box input {
+      flex: 1;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: white;
+      padding: 13px;
+      font-size: 14px;
+      min-width: 0;
+    }
 
-.scanner input {
-  flex: 1;
-  background: transparent;
-  border: 0;
-  outline: none;
-  color: white;
-  font-size: 16px;
-  padding: 17px;
-  min-width: 0;
-}
+    .search-box button {
+      border: none;
+      background: #3ce6ae;
+      color: #04130e;
+      font-weight: 800;
+      padding: 0 24px;
+      border-radius: 8px;
+      cursor: pointer;
+    }
 
-.scanner input::placeholder {
-  color: #73869d;
-}
+    .search-box button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
 
-.scanner button {
-  border: 0;
-  background: #35e6a5;
-  color: #04120d;
-  font-weight: 800;
-  padding: 0 30px;
-  border-radius: 11px;
-  cursor: pointer;
-}
+    .small-text {
+      margin-top: 12px;
+      color: #557793;
+      font-size: 11px;
+    }
 
-.scanner button:disabled {
-  opacity: .6;
-  cursor: wait;
-}
+    .section {
+      max-width: 1100px;
+      margin: auto;
+      padding: 55px 20px;
+    }
 
-.micro {
-  margin-top: 14px;
-  color: #63778e;
-  font-size: 12px;
-}
+    .section-title {
+      text-align: center;
+      margin-bottom: 35px;
+    }
 
-.section {
-  padding: 70px 7%;
-  max-width: 1250px;
-  margin: auto;
-}
+    .section-title h2 {
+      font-size: 27px;
+      margin-bottom: 8px;
+    }
 
-.section-title {
-  text-align: center;
-  margin-bottom: 45px;
-}
+    .section-title p {
+      color: #7d9db8;
+      font-size: 13px;
+    }
 
-.section-title h2 {
-  font-size: 36px;
-  margin-bottom: 12px;
-}
+    .features {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+      margin-bottom: 45px;
+    }
 
-.section-title p {
-  color: #8295aa;
-}
+    .feature {
+      border: 1px solid #284257;
+      background: #0c1c2c;
+      border-radius: 12px;
+      padding: 25px;
+    }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3,1fr);
-  gap: 18px;
-}
+    .feature-number {
+      color: #3ce6ae;
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 15px;
+    }
 
-.card {
-  background: #0d1928;
-  border: 1px solid #20334a;
-  border-radius: 16px;
-  padding: 28px;
-}
+    .feature h3 {
+      margin-bottom: 12px;
+      font-size: 17px;
+    }
 
-.number {
-  color: #35e6a5;
-  font-size: 13px;
-  margin-bottom: 18px;
-}
+    .feature p {
+      color: #8eacc6;
+      font-size: 13px;
+      line-height: 1.6;
+    }
 
-.card h3 {
-  margin-bottom: 12px;
-}
+    #result {
+      display: none;
+    }
 
-.card p {
-  color: #8295aa;
-  line-height: 1.6;
-  font-size: 14px;
-}
+    .result-card {
+      border: 1px solid #284257;
+      background: #0c1c2c;
+      border-radius: 16px;
+      padding: 30px;
+    }
 
-.demo {
-  margin-top: 70px;
-  background: #0c1827;
-  border: 1px solid #20334a;
-  border-radius: 20px;
-  padding: 35px;
-}
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      gap: 25px;
+      align-items: flex-start;
+      margin-bottom: 28px;
+    }
 
-.demo-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
+    .result-title {
+      flex: 1;
+    }
 
-.score {
-  width: 95px;
-  height: 95px;
-  border-radius: 50%;
-  border: 7px solid #35e6a5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 27px;
-  font-weight: bold;
-  flex-shrink: 0;
-}
+    .result-title h2 {
+      font-size: 23px;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
 
-.demo h2 {
-  margin-bottom: 8px;
-}
+    .result-subtitle {
+      color: #83a8c7;
+      margin-bottom: 15px;
+    }
 
-.location {
-  color: #8295aa;
-}
+    .status-badge {
+      display: inline-block;
+      padding: 8px 13px;
+      border-radius: 6px;
+      background: #073b35;
+      color: #3ce6ae;
+      font-size: 12px;
+    }
 
-.verdict {
-  display: inline-block;
-  margin-top: 16px;
-  padding: 7px 12px;
-  border-radius: 7px;
-  color: #35e6a5;
-  background: rgba(53,230,165,.08);
-  font-size: 13px;
-}
+    .score {
+      width: 90px;
+      height: 90px;
+      min-width: 90px;
+      border: 6px solid #3ce6ae;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 25px;
+      font-weight: 800;
+    }
 
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4,1fr);
-  gap: 12px;
-  margin-top: 30px;
-}
+    .score.pending {
+      color: #86a3bb;
+      border-color: #496579;
+      font-size: 16px;
+    }
 
-.metric {
-  background: #07111f;
-  padding: 20px;
-  border-radius: 12px;
-}
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
 
-.metric small {
-  display: block;
-  color: #73869d;
-  margin-bottom: 8px;
-}
+    .metric {
+      background: #071523;
+      border-radius: 10px;
+      padding: 20px;
+      min-height: 112px;
+    }
 
-.metric strong {
-  font-size: 19px;
-  word-break: break-word;
-}
+    .metric-label {
+      color: #7194b2;
+      font-size: 12px;
+      margin-bottom: 9px;
+    }
 
-.warning {
-  color: #ffb95c;
-}
+    .metric-value {
+      font-size: 19px;
+      font-weight: 800;
+      line-height: 1.3;
+      word-break: break-word;
+    }
 
-.analysis-box {
-  display: none;
-  margin-top: 20px;
-  background: #07111f;
-  padding: 20px;
-  border-radius: 12px;
-}
+    .radar-value {
+      color: #ffb13b;
+    }
 
-.analysis-box h3 {
-  margin-bottom: 12px;
-}
+    .analysis {
+      background: #071523;
+      border-radius: 10px;
+      padding: 22px;
+    }
 
-.analysis-box p {
-  color: #9eafc3;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
+    .analysis h3 {
+      margin-bottom: 17px;
+    }
 
-.error-box {
-  display: none;
-  margin-top: 20px;
-  padding: 16px;
-  border: 1px solid #7d3941;
-  background: rgba(160,50,60,.08);
-  border-radius: 10px;
-  color: #ff9da6;
-}
+    .analysis-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 9px 30px;
+      color: #9db9d0;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
 
-footer {
-  text-align: center;
-  color: #52667d;
-  padding: 45px;
-  border-top: 1px solid #17283b;
-  margin-top: 70px;
-}
+    .analysis-grid strong {
+      color: #ffffff;
+    }
 
-@media(max-width:750px) {
-  .scanner {
-    display: block;
-  }
+    .description-title {
+      color: #ffffff;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
 
-  .scanner button {
-    width: 100%;
-    padding: 17px;
-  }
+    .description {
+      color: #9db9d0;
+      line-height: 1.6;
+      font-size: 14px;
+    }
 
-  .grid,
-  .metrics {
-    grid-template-columns: 1fr;
-  }
+    .market-box {
+      margin-top: 20px;
+      border-top: 1px solid #1d3447;
+      padding-top: 20px;
+    }
 
-  .demo-top {
-    gap: 25px;
-    align-items: flex-start;
-  }
-}
-</style>
+    .market-box h4 {
+      margin-bottom: 12px;
+    }
+
+    .market-row {
+      color: #9db9d0;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .error {
+      display: none;
+      max-width: 1100px;
+      margin: 25px auto;
+      padding: 15px 20px;
+      border: 1px solid #8b3442;
+      color: #ff9aaa;
+      background: #2a1017;
+      border-radius: 8px;
+    }
+
+    footer {
+      text-align: center;
+      border-top: 1px solid #1c3448;
+      padding: 25px;
+      color: #557793;
+      font-size: 11px;
+    }
+
+    @media (max-width: 800px) {
+      .hero h1 {
+        font-size: 34px;
+      }
+
+      .features {
+        grid-template-columns: 1fr;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .analysis-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .search-box {
+        flex-direction: column;
+      }
+
+      .search-box button {
+        padding: 14px;
+      }
+
+      .result-header {
+        flex-direction: column;
+      }
+
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 
 <body>
 
-<nav>
-  <div class="logo">
-    PROPERTY <span>RADAR</span>
-  </div>
+  <header class="topbar">
+    <div class="logo">PROPERTY RADAR</div>
+    <div class="top-note">Morocco Property Intelligence</div>
+  </header>
 
-  <div class="nav-right">
-    Morocco Property Intelligence
-  </div>
-</nav>
+  <section class="hero">
 
-<section class="hero">
+    <div class="badge">
+      BUY WITH DATA, NOT GUESSWORK
+    </div>
 
-  <div class="tag">
-    BUY WITH DATA, NOT GUESSWORK
-  </div>
-
-  <h1>
-    See What The Property
-    <span>Listing Doesn't Tell You.</span>
-  </h1>
-
-  <p class="subtitle">
-    Paste a Moroccan property listing. Property Radar analyses the price,
-    market position, investment potential and possible risks before
-    you contact the seller.
-  </p>
-
-  <div class="scanner">
-
-    <input
-      id="propertyUrl"
-      type="url"
-      placeholder="Paste a property listing link..."
-    >
-
-    <button
-      id="scanButton"
-      onclick="scanProperty()"
-    >
-      SCAN PROPERTY
-    </button>
-
-  </div>
-
-  <div class="micro">
-    Starting with Marrakech • More Moroccan cities coming
-  </div>
-
-</section>
-
-<section class="section">
-
-  <div class="section-title">
-    <h2>One listing. A different view.</h2>
+    <h1>
+      See What The Property
+      <br>
+      <span>Listing Doesn't Tell You.</span>
+    </h1>
 
     <p>
-      Property Radar turns an advert into buyer intelligence.
+      Paste a Moroccan property listing.
+      Property Radar checks the listing data first
+      and only produces market analysis when enough
+      reliable information is available.
     </p>
-  </div>
 
-  <div class="grid">
+    <div class="search-box">
+      <input
+        id="propertyUrl"
+        type="url"
+        placeholder="Paste a property listing URL"
+      >
 
-    <div class="card">
-      <div class="number">01</div>
+      <button
+        id="scanButton"
+        onclick="scanProperty()"
+      >
+        SCAN PROPERTY
+      </button>
+    </div>
 
-      <h3>Price Intelligence</h3>
+    <div class="small-text">
+      Universal property scanner · More markets coming
+    </div>
 
+  </section>
+
+  <section class="section">
+
+    <div class="section-title">
+      <h2>One listing. A different view.</h2>
       <p>
-        Compare asking price, price per square metre and similar
-        properties in the same market.
+        Property Radar separates listing facts from market analysis.
       </p>
     </div>
 
-    <div class="card">
-      <div class="number">02</div>
+    <div class="features">
 
-      <h3>Listing Radar</h3>
+      <div class="feature">
+        <div class="feature-number">01</div>
+        <h3>Price Intelligence</h3>
+        <p>
+          Verify asking price and calculate price per square metre
+          only when the required area data is available.
+        </p>
+      </div>
 
-      <p>
-        Identify possible duplicate adverts, pricing differences
-        and signals that deserve investigation.
-      </p>
+      <div class="feature">
+        <div class="feature-number">02</div>
+        <h3>Listing Radar</h3>
+        <p>
+          Extract property details and flag missing or
+          unconfirmed information.
+        </p>
+      </div>
+
+      <div class="feature">
+        <div class="feature-number">03</div>
+        <h3>Buyer Intelligence</h3>
+        <p>
+          Compare properties against suitable market data
+          when the evidence supports the comparison.
+        </p>
+      </div>
+
     </div>
 
-    <div class="card">
-      <div class="number">03</div>
+    <div id="result">
 
-      <h3>Buyer Intelligence</h3>
+      <div class="result-card">
 
-      <p>
-        See investment indicators, negotiation points, questions
-        to ask and a simple Radar Score.
-      </p>
-    </div>
+        <div class="result-header">
 
-  </div>
+          <div class="result-title">
 
-  <div class="demo" id="result">
+            <h2 id="resultTitle">
+              Property
+            </h2>
 
-    <div class="demo-top">
+            <div
+              id="resultSubtitle"
+              class="result-subtitle"
+            ></div>
 
-      <div>
+            <div
+              id="statusBadge"
+              class="status-badge"
+            >
+              PROPERTY DATA
+            </div>
 
-        <h2 id="resultTitle">
-          Example Radar Scan
-        </h2>
+          </div>
 
-        <div class="location" id="resultLocation">
-          2-bedroom apartment • Marrakech
+          <div
+            id="radarScore"
+            class="score pending"
+          >
+            —
+          </div>
+
         </div>
 
-        <div class="verdict" id="resultVerdict">
-          POSSIBLE OPPORTUNITY
+        <div class="metrics">
+
+          <div class="metric">
+            <div class="metric-label">
+              Asking price
+            </div>
+
+            <div
+              id="askingPrice"
+              class="metric-value"
+            >
+              Not detected
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">
+              Price / m²
+            </div>
+
+            <div
+              id="priceM2"
+              class="metric-value"
+            >
+              Not calculated
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">
+              Market comparison
+            </div>
+
+            <div
+              id="marketComparison"
+              class="metric-value"
+            >
+              Not analysed
+            </div>
+          </div>
+
+          <div class="metric">
+            <div class="metric-label">
+              Radar signal
+            </div>
+
+            <div
+              id="radarSignal"
+              class="metric-value radar-value"
+            >
+              Pending
+            </div>
+          </div>
+
+        </div>
+
+        <div class="analysis">
+
+          <h3>Property Analysis</h3>
+
+          <div class="analysis-grid">
+
+            <div>
+              Property type:
+              <strong id="propertyType">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Location:
+              <strong id="location">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Micro-location:
+              <strong id="microLocation">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Bedrooms:
+              <strong id="bedrooms">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Built area:
+              <strong id="builtArea">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Plot area:
+              <strong id="plotArea">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Asking price:
+              <strong id="analysisPrice">
+                Not confirmed
+              </strong>
+            </div>
+
+            <div>
+              Data confidence:
+              <strong id="dataConfidence">
+                —
+              </strong>
+            </div>
+
+          </div>
+
+          <div class="description-title">
+            Listing description
+          </div>
+
+          <div
+            id="description"
+            class="description"
+          >
+            No description available.
+          </div>
+
+          <div
+            id="marketBox"
+            class="market-box"
+            style="display:none;"
+          >
+
+            <h4>Market Analysis</h4>
+
+            <div
+              id="marketDetails"
+              class="market-row"
+            ></div>
+
+          </div>
+
         </div>
 
       </div>
 
-      <div class="score" id="resultScore">
-        82
-      </div>
-
     </div>
 
-    <div class="metrics">
+  </section>
 
-      <div class="metric">
-        <small>Asking price</small>
+  <div
+    id="errorBox"
+    class="error"
+  ></div>
 
-        <strong id="askingPrice">
-          1,450,000 MAD
-        </strong>
-      </div>
+  <footer>
+    Property Radar · Independent property intelligence for buyers
+  </footer>
 
-      <div class="metric">
-        <small>Price / m²</small>
 
-        <strong id="pricePerSqm">
-          14,500 MAD
-        </strong>
-      </div>
+  <script>
 
-      <div class="metric">
-        <small>Market comparison</small>
-
-        <strong id="marketComparison">
-          −8%
-        </strong>
-      </div>
-
-      <div class="metric">
-        <small>Radar signal</small>
-
-        <strong class="warning" id="radarSignal">
-          Check seller
-        </strong>
-      </div>
-
-    </div>
-
-    <div class="analysis-box" id="analysisBox">
-
-      <h3>
-        Property Analysis
-      </h3>
-
-      <p id="analysisText"></p>
-
-    </div>
-
-    <div
-      class="error-box"
-      id="errorBox"
-    ></div>
-
-  </div>
-
-</section>
-
-<footer>
-  Property Radar • Independent property intelligence for buyers
-</footer>
-
-<script>
-
-async function scanProperty() {
-
-  const input =
-    document.getElementById("propertyUrl");
-
-  const button =
-    document.getElementById("scanButton");
-
-  const result =
-    document.getElementById("result");
-
-  const errorBox =
-    document.getElementById("errorBox");
-
-  const analysisBox =
-    document.getElementById("analysisBox");
-
-  const url =
-    input.value.trim();
-
-
-  if (!url) {
-
-    alert(
-      "Paste a property listing first."
-    );
-
-    return;
-  }
-
-
-  try {
-
-    new URL(url);
-
-  } catch {
-
-    alert(
-      "Please enter a valid property listing URL."
-    );
-
-    return;
-  }
-
-
-  button.disabled = true;
-
-  button.textContent =
-    "SCANNING...";
-
-
-  errorBox.style.display =
-    "none";
-
-  analysisBox.style.display =
-    "none";
-
-
-  document.getElementById(
-    "resultVerdict"
-  ).textContent =
-    "SCANNING LISTING";
-
-
-  document.getElementById(
-    "resultScore"
-  ).textContent =
-    "...";
-
-
-  try {
-
-    const response =
-      await fetch(
-        "/api/scan",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body: JSON.stringify({
-            url: url
-          })
-        }
-      );
-
-
-    const contentType =
-      response.headers.get(
-        "content-type"
-      ) || "";
-
-
-    if (
-      !contentType.includes(
-        "application/json"
-      )
-    ) {
-
-      const responseText =
-        await response.text();
-
-      throw new Error(
-        "Server returned HTTP " +
-        response.status +
-        ". " +
-        responseText.substring(
-          0,
-          120
-        )
-      );
-    }
-
-
-    const data =
-      await response.json();
-
-
-    if (
-      !response.ok ||
-      data.success === false
-    ) {
-
-      throw new Error(
-        data.error ||
-        data.detail ||
-        data.details ||
-        "Property scan failed."
-      );
-    }
-
-
-    const property =
-      data.property || {};
-
-    const source =
-      data.source || {};
-
-    const radar =
-      data.radar || {};
-
-
-    document.getElementById(
-      "resultTitle"
-    ).textContent =
-      source.title ||
-      "Property Radar Scan";
-
-
-    const locationParts = [];
-
-
-    if (
-      property.property_type
-    ) {
-
-      locationParts.push(
-        property.property_type
-      );
-    }
-
-
-    if (
-      property.bedrooms
-    ) {
-
-      locationParts.push(
-        property.bedrooms +
-        " bedrooms"
-      );
-    }
-
-
-    if (
-      property.city
-    ) {
-
-      locationParts.push(
-        property.city
-      );
-    }
-
-
-    document.getElementById(
-      "resultLocation"
-    ).textContent =
-      locationParts.length
-        ? locationParts.join(" • ")
-        : "Morocco";
-
-
-    document.getElementById(
-      "resultVerdict"
-    ).textContent =
-      radar.status ||
-      "LISTING RETRIEVED";
-
-
-    document.getElementById(
-      "resultScore"
-    ).textContent =
-      radar.data_confidence ??
-      "--";
-
-
-    document.getElementById(
-      "askingPrice"
-    ).textContent =
-      property.price_mad
-        ? Number(
-            property.price_mad
-          ).toLocaleString() +
-          " MAD"
-        : "Not detected";
-
-
-    document.getElementById(
-      "pricePerSqm"
-    ).textContent =
-      property.price_per_m2_mad
-        ? Number(
-            property.price_per_m2_mad
-          ).toLocaleString() +
-          " MAD"
-        : "Not calculated";
-
-
-    document.getElementById(
-      "marketComparison"
-    ).textContent =
-      "Not analysed";
-
-
-    document.getElementById(
-      "radarSignal"
-    ).textContent =
-      radar.status ||
-      "Review listing";
-
-
-    const analysisParts = [];
-
-
-    if (
-      property.property_type
-    ) {
-
-      analysisParts.push(
-        "Property type: " +
-        property.property_type
-      );
-    }
-
-
-    if (
-      property.city
-    ) {
-
-      analysisParts.push(
-        "Location: " +
-        property.city
-      );
-    }
-
-
-    if (
-      property.area_m2
-    ) {
-
-      analysisParts.push(
-        "Area: " +
-        property.area_m2 +
-        " m²"
-      );
-    }
-
-
-    if (
-      property.bedrooms
-    ) {
-
-      analysisParts.push(
-        "Bedrooms: " +
-        property.bedrooms
-      );
-    }
-
-
-    if (
-      property.price_mad
-    ) {
-
-      analysisParts.push(
-        "Asking price: " +
-        Number(
-          property.price_mad
-        ).toLocaleString() +
-        " MAD"
-      );
-    }
-
-
-    if (
-      property.price_per_m2_mad
-    ) {
-
-      analysisParts.push(
-        "Price per m²: " +
-        Number(
-          property.price_per_m2_mad
-        ).toLocaleString() +
-        " MAD"
-      );
-    }
-
-
-    if (
-      radar.data_confidence !==
-      undefined
-    ) {
-
-      analysisParts.push(
-        "Data confidence: " +
-        radar.data_confidence +
-        "%"
-      );
-    }
-
-
-    if (
-      source.description
-    ) {
-
-      analysisParts.push(
-        "\nListing description:\n" +
-        source.description
-      );
-    }
-
-
-    if (
-      analysisParts.length
-    ) {
-
-      document.getElementById(
-        "analysisText"
-      ).textContent =
-        analysisParts.join("\n");
-
-      analysisBox.style.display =
-        "block";
-    }
-
-
-    result.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-
-
-  } catch (error) {
-
-    errorBox.textContent =
-      "Scan failed: " +
-      error.message;
-
-    errorBox.style.display =
-      "block";
-
-
-    document.getElementById(
-      "resultVerdict"
-    ).textContent =
-      "SCAN FAILED";
-
-
-    document.getElementById(
-      "resultScore"
-    ).textContent =
-      "--";
-
-
-    result.scrollIntoView({
-      behavior: "smooth",
-      block: "start"
-    });
-
-
-  } finally {
-
-    button.disabled = false;
-
-    button.textContent =
-      "SCAN PROPERTY";
-  }
-}
-
-
-document
-  .getElementById(
-    "propertyUrl"
-  )
-  .addEventListener(
-    "keydown",
-    function(event) {
-
+    function formatNumber(value) {
       if (
-        event.key === "Enter"
+        value === null ||
+        value === undefined ||
+        value === ""
       ) {
-
-        scanProperty();
+        return null;
       }
 
-    }
-  );
+      const number = Number(value);
 
-</script>
+      if (!Number.isFinite(number)) {
+        return null;
+      }
+
+      return new Intl.NumberFormat(
+        "en-GB"
+      ).format(number);
+    }
+
+
+    function valueOrFallback(
+      value,
+      fallback = "Not confirmed"
+    ) {
+      if (
+        value === null ||
+        value === undefined ||
+        value === ""
+      ) {
+        return fallback;
+      }
+
+      return value;
+    }
+
+
+    function showError(message) {
+      const box = document.getElementById(
+        "errorBox"
+      );
+
+      box.textContent = message;
+      box.style.display = "block";
+    }
+
+
+    function clearError() {
+      const box = document.getElementById(
+        "errorBox"
+      );
+
+      box.textContent = "";
+      box.style.display = "none";
+    }
+
+
+    async function scanProperty() {
+
+      clearError();
+
+      const input = document.getElementById(
+        "propertyUrl"
+      );
+
+      const button = document.getElementById(
+        "scanButton"
+      );
+
+      const url = input.value.trim();
+
+      if (!url) {
+        showError(
+          "Paste a property listing URL first."
+        );
+
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "SCANNING...";
+
+      try {
+
+        const response = await fetch(
+          "/api/scan",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json"
+            },
+
+            body: JSON.stringify({
+              url: url
+            })
+          }
+        );
+
+        let data;
+
+        try {
+          data = await response.json();
+        }
+        catch {
+          throw new Error(
+            "The server returned an invalid response."
+          );
+        }
+
+        if (
+          !response.ok ||
+          !data.success
+        ) {
+          throw new Error(
+            data.error ||
+            data.details ||
+            "Property scan failed."
+          );
+        }
+
+        renderResult(data);
+
+      }
+      catch (error) {
+
+        showError(
+          error.message ||
+          "Property scan failed."
+        );
+
+      }
+      finally {
+
+        button.disabled = false;
+        button.textContent = "SCAN PROPERTY";
+
+      }
+    }
+
+
+    function renderResult(data) {
+
+      const property =
+        data.property || {};
+
+      const radar =
+        data.radar || {};
+
+      const market =
+        data.market_analysis || {};
+
+      const source =
+        data.source || {};
+
+
+      /*
+       * TITLE
+       */
+
+      document.getElementById(
+        "resultTitle"
+      ).textContent =
+        source.title ||
+        "Property listing";
+
+
+      /*
+       * SUBTITLE
+       */
+
+      const subtitleParts = [];
+
+      if (property.property_type) {
+        subtitleParts.push(
+          property.property_type
+        );
+      }
+
+      if (property.bedrooms) {
+        subtitleParts.push(
+          property.bedrooms +
+          " bedrooms"
+        );
+      }
+
+      if (property.city) {
+        subtitleParts.push(
+          property.city
+        );
+      }
+
+      document.getElementById(
+        "resultSubtitle"
+      ).textContent =
+        subtitleParts.join(" · ");
+
+
+      /*
+       * PRICE
+       */
+
+      const formattedPrice =
+        formatNumber(
+          property.price_mad
+        );
+
+      const priceText =
+        formattedPrice
+          ? formattedPrice + " MAD"
+          : "Not detected";
+
+      document.getElementById(
+        "askingPrice"
+      ).textContent =
+        priceText;
+
+      document.getElementById(
+        "analysisPrice"
+      ).textContent =
+        formattedPrice
+          ? formattedPrice + " MAD"
+          : "Not confirmed";
+
+
+      /*
+       * PRICE PER M2
+       *
+       * Only display when backend
+       * actually calculated it.
+       */
+
+      const builtM2 =
+        formatNumber(
+          property
+            .price_per_built_m2_mad
+        );
+
+      document.getElementById(
+        "priceM2"
+      ).textContent =
+        builtM2
+          ? builtM2 + " MAD"
+          : "Not calculated";
+
+
+      /*
+       * PROPERTY DETAILS
+       */
+
+      document.getElementById(
+        "propertyType"
+      ).textContent =
+        valueOrFallback(
+          property.property_type
+        );
+
+      document.getElementById(
+        "location"
+      ).textContent =
+        valueOrFallback(
+          property.city
+        );
+
+      document.getElementById(
+        "microLocation"
+      ).textContent =
+        valueOrFallback(
+          property.micro_location
+        );
+
+      document.getElementById(
+        "bedrooms"
+      ).textContent =
+        valueOrFallback(
+          property.bedrooms
+        );
+
+      document.getElementById(
+        "builtArea"
+      ).textContent =
+        property.built_area_m2
+          ? formatNumber(
+              property.built_area_m2
+            ) + " m²"
+          : "Not confirmed";
+
+      document.getElementById(
+        "plotArea"
+      ).textContent =
+        property.plot_area_m2
+          ? formatNumber(
+              property.plot_area_m2
+            ) + " m²"
+          : "Not confirmed";
+
+
+      /*
+       * DATA CONFIDENCE
+       *
+       * This is NOT the Radar Score.
+       */
+
+      document.getElementById(
+        "dataConfidence"
+      ).textContent =
+        radar.data_confidence !== null &&
+        radar.data_confidence !== undefined
+          ? radar.data_confidence + "%"
+          : "—";
+
+
+      /*
+       * DESCRIPTION
+       */
+
+      document.getElementById(
+        "description"
+      ).textContent =
+        source.description ||
+        "No description available.";
+
+
+      /*
+       * MARKET ANALYSIS
+       *
+       * Critical rule:
+       *
+       * market.available must be TRUE
+       * before showing a market verdict.
+       */
+
+      const marketAvailable =
+        market.available === true;
+
+
+      const marketComparison =
+        document.getElementById(
+          "marketComparison"
+        );
+
+      const radarSignal =
+        document.getElementById(
+          "radarSignal"
+        );
+
+      const statusBadge =
+        document.getElementById(
+          "statusBadge"
+        );
+
+      const scoreElement =
+        document.getElementById(
+          "radarScore"
+        );
+
+      const marketBox =
+        document.getElementById(
+          "marketBox"
+        );
+
+      const marketDetails =
+        document.getElementById(
+          "marketDetails"
+        );
+
+
+      if (marketAvailable) {
+
+        /*
+         * We have sufficient data
+         * for a real comparison.
+         */
+
+        const difference =
+          market.difference_percent;
+
+        const benchmark =
+          formatNumber(
+            market.benchmark_mad_m2
+          );
+
+        marketComparison.textContent =
+          difference !== null &&
+          difference !== undefined
+            ? (
+                difference > 0
+                  ? "+" + difference + "%"
+                  : difference + "%"
+              )
+            : "Analysed";
+
+        radarSignal.textContent =
+          market.market_position ||
+          radar.status ||
+          "Market analysis available";
+
+        statusBadge.textContent =
+          market.market_position ||
+          "MARKET ANALYSIS AVAILABLE";
+
+
+        /*
+         * RADAR SCORE
+         *
+         * Only use radar.radar_score.
+         * Never use data_confidence here.
+         */
+
+        if (
+          radar.radar_score !== null &&
+          radar.radar_score !== undefined
+        ) {
+
+          scoreElement.textContent =
+            radar.radar_score;
+
+          scoreElement.classList.remove(
+            "pending"
+          );
+
+        }
+        else {
+
+          scoreElement.textContent = "—";
+
+          scoreElement.classList.add(
+            "pending"
+          );
+
+        }
+
+
+        /*
+         * MARKET DETAIL BOX
+         */
+
+        let details = "";
+
+        if (
+          market.listing_mad_m2 !== null &&
+          market.listing_mad_m2 !== undefined
+        ) {
+
+          details +=
+            "Listing price / m²: " +
+            formatNumber(
+              market.listing_mad_m2
+            ) +
+            " MAD<br>";
+
+        }
+
+        if (benchmark) {
+
+          details +=
+            "Local benchmark: " +
+            benchmark +
+            " MAD/m²<br>";
+
+        }
+
+        if (
+          difference !== null &&
+          difference !== undefined
+        ) {
+
+          details +=
+            "Difference: " +
+            (
+              difference > 0
+                ? "+"
+                : ""
+            ) +
+            difference +
+            "%<br>";
+
+        }
+
+        if (market.market_position) {
+
+          details +=
+            "Market position: " +
+            market.market_position;
+
+        }
+
+        marketDetails.innerHTML =
+          details;
+
+        marketBox.style.display =
+          "block";
+
+      }
+      else {
+
+        /*
+         * NO MARKET ANALYSIS
+         *
+         * We must not show:
+         *
+         * below market
+         * above market
+         * investment opportunity
+         * market score
+         */
+
+        marketComparison.textContent =
+          "Not analysed";
+
+
+        /*
+         * Decide why analysis
+         * is unavailable.
+         */
+
+        let pendingStatus =
+          radar.verification_status ||
+          radar.status ||
+          "MARKET ANALYSIS PENDING";
+
+
+        if (!property.price_mad) {
+
+          pendingStatus =
+            "PRICE REQUIRED";
+
+        }
+        else if (!property.built_area_m2) {
+
+          pendingStatus =
+            "PRICE VERIFIED - AREA REQUIRED";
+
+        }
+        else if (!market.available) {
+
+          pendingStatus =
+            "MARKET BENCHMARK UNAVAILABLE";
+
+        }
+
+
+        radarSignal.textContent =
+          pendingStatus;
+
+        statusBadge.textContent =
+          pendingStatus;
+
+
+        /*
+         * Radar Score stays blank.
+         */
+
+        scoreElement.textContent = "—";
+
+        scoreElement.classList.add(
+          "pending"
+        );
+
+
+        /*
+         * No market detail box.
+         */
+
+        marketBox.style.display =
+          "none";
+
+        marketDetails.innerHTML = "";
+
+      }
+
+
+      /*
+       * SHOW RESULT
+       */
+
+      document.getElementById(
+        "result"
+      ).style.display =
+        "block";
+
+
+      /*
+       * SCROLL TO RESULT
+       */
+
+      document.getElementById(
+        "result"
+      ).scrollIntoView({
+        behavior: "smooth",
+        block: "start"
+      });
+
+    }
+
+
+    /*
+     * Allow Enter key
+     */
+
+    document.getElementById(
+      "propertyUrl"
+    ).addEventListener(
+      "keydown",
+      function(event) {
+
+        if (event.key === "Enter") {
+          scanProperty();
+        }
+
+      }
+    );
+
+  </script>
 
 </body>
 </html>
