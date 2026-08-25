@@ -12,49 +12,31 @@ app = Flask(__name__)
 CORS(app)
 
 
-# --------------------------------------------------
-# HOME
-# --------------------------------------------------
-
 @app.route("/", methods=["GET"])
 def home():
     return send_from_directory(".", "index.html")
 
 
-# --------------------------------------------------
-# BASIC HELPERS
-# --------------------------------------------------
-
 def clean_text(value):
     if value is None:
         return ""
-
-    return re.sub(
-        r"\s+",
-        " ",
-        str(value)
-    ).strip()
+    return re.sub(r"\s+", " ", str(value)).strip()
 
 
-def number_to_int(value):
+def digits_to_int(value):
     if value is None:
         return None
 
-    text = clean_text(value)
+    text = str(value).replace("\xa0", " ").strip()
 
-    match = re.search(
-        r"\d[\d\s.,]*",
-        text
-    )
+    # Handle normal integer/decimal values from structured data
+    if re.fullmatch(r"\d+(?:\.\d+)?", text):
+        try:
+            return int(float(text))
+        except ValueError:
+            return None
 
-    if not match:
-        return None
-
-    digits = re.sub(
-        r"[^\d]",
-        "",
-        match.group(0)
-    )
+    digits = re.sub(r"[^\d]", "", text)
 
     if not digits:
         return None
@@ -65,69 +47,59 @@ def number_to_int(value):
         return None
 
 
-# --------------------------------------------------
-# META
-# --------------------------------------------------
+def valid_price(value):
+    return (
+        isinstance(value, int)
+        and 100000 <= value <= 500000000
+    )
+
+
+def valid_area(value):
+    try:
+        value = int(value)
+    except (TypeError, ValueError):
+        return None
+
+    if 10 <= value <= 100000:
+        return value
+
+    return None
+
 
 def get_meta(soup, name=None, prop=None):
-
     tag = None
 
     if name:
-        tag = soup.find(
-            "meta",
-            attrs={"name": name}
-        )
+        tag = soup.find("meta", attrs={"name": name})
 
     if not tag and prop:
-        tag = soup.find(
-            "meta",
-            attrs={"property": prop}
-        )
+        tag = soup.find("meta", attrs={"property": prop})
 
-    if tag:
-        return clean_text(
-            tag.get("content", "")
-        )
+    if not tag:
+        return ""
 
-    return ""
+    return clean_text(tag.get("content", ""))
 
-
-# --------------------------------------------------
-# JSON-LD
-# --------------------------------------------------
 
 def get_json_ld(soup):
-
     results = []
 
-    scripts = soup.find_all(
+    for script in soup.find_all(
         "script",
-        attrs={
-            "type": "application/ld+json"
-        }
-    )
-
-    for script in scripts:
-
-        raw = (
-            script.string
-            or script.get_text()
-        )
+        attrs={"type": "application/ld+json"}
+    ):
+        raw = script.string or script.get_text()
 
         if not raw:
             continue
 
         try:
-
             parsed = json.loads(raw)
 
             if isinstance(parsed, list):
-
                 results.extend(parsed)
 
             elif isinstance(parsed, dict):
-
                 graph = parsed.get("@graph")
 
                 if isinstance(graph, list):
@@ -142,140 +114,201 @@ def get_json_ld(soup):
 
 
 def walk_json(value):
-
     if isinstance(value, dict):
-
         yield value
 
         for child in value.values():
             yield from walk_json(child)
 
     elif isinstance(value, list):
-
         for child in value:
             yield from walk_json(child)
 
 
 # --------------------------------------------------
-# PRICE
+# PRICE EXTRACTION
 # --------------------------------------------------
 
-def extract_price_from_json(data):
+def structured_price_candidates(json_data):
+    candidates = []
 
-    for item in walk_json(data):
+    for item in walk_json(json_data):
 
-        for key in [
-            "price",
-            "lowPrice",
-            "highPrice"
-        ]:
+        for key in ["price", "lowPrice", "highPrice"]:
 
             if key not in item:
                 continue
 
-            value = number_to_int(
-                item.get(key)
-            )
+            value = digits_to_int(item.get(key))
 
-            if (
-                value
-                and
-                10000 <= value <= 1000000000
-            ):
-                return value
+            if valid_price(value):
+                candidates.append({
+                    "value": value,
+                    "source": "structured_data",
+                    "field": key
+                })
 
-        offers = item.get("offers")
-
-        if isinstance(offers, dict):
-
-            value = number_to_int(
-                offers.get("price")
-            )
-
-            if (
-                value
-                and
-                10000 <= value <= 1000000000
-            ):
-                return value
-
-    return None
+    return candidates
 
 
-def extract_price_from_text(text):
+def meta_price_candidates(soup):
+    candidates = []
 
+    possible_meta = [
+        ("property", "product:price:amount"),
+        ("property", "og:price:amount"),
+        ("name", "price"),
+        ("itemprop", "price")
+    ]
+
+    for attribute, value in possible_meta:
+
+        tag = soup.find(
+            "meta",
+            attrs={attribute: value}
+        )
+
+        if not tag:
+            continue
+
+        number = digits_to_int(
+            tag.get("content", "")
+        )
+
+        if valid_price(number):
+            candidates.append({
+                "value": number,
+                "source": "meta",
+                "field": value
+            })
+
+    return candidates
+
+
+def visible_price_candidates(text):
+    candidates = []
+
+    # Require a currency marker.
     patterns = [
-
-        r"(\d{1,3}(?:[\s,.]\d{3})+)\s*(?:MAD|DH|DHS)",
-
-        r"(?:MAD|DH|DHS)\s*(\d{1,3}(?:[\s,.]\d{3})+)",
-
-        r"(\d{5,10})\s*(?:MAD|DH|DHS)",
-
-        r"(\d{1,3}(?:[\s,.]\d{3})+)\s*درهم",
-
-        r"(\d{5,10})\s*درهم"
+        r"(\d{1,3}(?:[ \u00a0.,]\d{3})+)\s*(?:MAD|DHS?|DH)\b",
+        r"\b(?:MAD|DHS?|DH)\s*(\d{1,3}(?:[ \u00a0.,]\d{3})+)",
+        r"(\d{5,9})\s*(?:MAD|DHS?|DH)\b",
+        r"(\d{1,3}(?:[ \u00a0.,]\d{3})+)\s*درهم",
+        r"(\d{5,9})\s*درهم"
     ]
 
     for pattern in patterns:
 
-        match = re.search(
+        for match in re.finditer(
             pattern,
             text,
             re.IGNORECASE
-        )
-
-        if match:
-
-            value = number_to_int(
+        ):
+            value = digits_to_int(
                 match.group(1)
             )
 
-            if (
-                value
-                and
-                10000 <= value <= 1000000000
-            ):
-                return value
+            if valid_price(value):
+                candidates.append({
+                    "value": value,
+                    "source": "visible_text",
+                    "field": "currency_price"
+                })
 
-    return None
-
-
-# --------------------------------------------------
-# AREA HELPERS
-# --------------------------------------------------
-
-def valid_area(value):
-
-    if value is None:
-        return None
-
-    try:
-        value = int(value)
-
-        if 10 <= value <= 100000:
-            return value
-
-    except (TypeError, ValueError):
-        pass
-
-    return None
+    return candidates
 
 
-def find_area_with_labels(
-    text,
-    labels
+def select_price(
+    structured,
+    metadata,
+    visible
 ):
+    """
+    Price priority:
+    1. Explicit metadata
+    2. Structured JSON-LD
+    3. Visible text
+
+    If several sources agree, confidence rises.
+    """
+
+    all_candidates = (
+        metadata
+        + structured
+        + visible
+    )
+
+    if not all_candidates:
+        return None, "none", "low", []
+
+    counts = {}
+
+    for candidate in all_candidates:
+        value = candidate["value"]
+        counts[value] = counts.get(value, 0) + 1
+
+    # Prefer values confirmed by multiple occurrences/sources.
+    confirmed = [
+        value
+        for value, count in counts.items()
+        if count >= 2
+    ]
+
+    if confirmed:
+        confirmed.sort(
+            key=lambda value: (
+                counts[value],
+                -value
+            ),
+            reverse=True
+        )
+
+        chosen = confirmed[0]
+
+        return (
+            chosen,
+            "multiple_sources",
+            "high",
+            all_candidates
+        )
+
+    # Metadata is normally the safest single source.
+    if metadata:
+        return (
+            metadata[0]["value"],
+            "meta",
+            "medium",
+            all_candidates
+        )
+
+    if structured:
+        return (
+            structured[0]["value"],
+            "structured_data",
+            "medium",
+            all_candidates
+        )
+
+    return (
+        visible[0]["value"],
+        "visible_text",
+        "low",
+        all_candidates
+    )
+
+
+# --------------------------------------------------
+# AREA EXTRACTION
+# --------------------------------------------------
+
+def labelled_area(text, labels):
 
     for label in labels:
 
         patterns = [
-
             rf"{label}\s*[:\-]?\s*(\d{{2,5}})\s*(?:m²|m2|sqm)",
-
-            rf"{label}.{{0,40}}?(\d{{2,5}})\s*(?:m²|m2|sqm)",
-
-            rf"(\d{{2,5}})\s*(?:m²|m2|sqm).{{0,30}}?{label}"
+            rf"{label}.{{0,35}}?(\d{{2,5}})\s*(?:m²|m2|sqm)",
+            rf"(\d{{2,5}})\s*(?:m²|m2|sqm).{{0,25}}?{label}"
         ]
 
         for pattern in patterns:
@@ -287,135 +320,85 @@ def find_area_with_labels(
             )
 
             if match:
-
-                area = valid_area(
+                value = valid_area(
                     match.group(1)
                 )
 
-                if area:
-                    return area
+                if value:
+                    return value
 
     return None
 
-
-# --------------------------------------------------
-# PLOT / LAND AREA
-# --------------------------------------------------
 
 def extract_plot_area(text):
 
     labels = [
-
-        r"plot\s*surface",
-
         r"plot\s*area",
-
+        r"plot\s*surface",
         r"plot\s*size",
-
-        r"land\s*surface",
-
         r"land\s*area",
-
+        r"land\s*surface",
         r"land\s*size",
-
-        r"lot\s*surface",
-
         r"lot\s*area",
-
         r"surface\s*terrain",
-
         r"superficie\s*terrain",
-
         r"terrain",
-
         r"parcelle"
     ]
 
-    return find_area_with_labels(
-        text,
-        labels
-    )
+    return labelled_area(text, labels)
 
-
-# --------------------------------------------------
-# BUILT / LIVING AREA
-# --------------------------------------------------
 
 def extract_built_area(text):
 
     labels = [
-
         r"built\s*area",
-
         r"built\s*surface",
-
         r"constructed\s*area",
-
         r"construction\s*area",
-
         r"living\s*area",
-
         r"living\s*surface",
-
         r"habitable\s*area",
-
         r"surface\s*habitable",
-
         r"superficie\s*habitable",
-
         r"surface\s*construite",
-
         r"superficie\s*construite"
     ]
 
-    return find_area_with_labels(
-        text,
-        labels
-    )
+    return labelled_area(text, labels)
 
 
-# --------------------------------------------------
-# GENERIC LISTING AREA
-# --------------------------------------------------
-
-def extract_listing_area(text):
+def extract_all_generic_areas(text):
+    values = []
 
     patterns = [
-
         r"\b(\d{2,5})\s*m²\b",
-
         r"\b(\d{2,5})\s*m2\b",
-
-        r"\b(\d{2,5})\s*sqm\b",
-
-        r"\b(\d{2,5})\s*م²\b"
+        r"\b(\d{2,5})\s*sqm\b"
     ]
 
     for pattern in patterns:
 
-        match = re.search(
+        for match in re.finditer(
             pattern,
             text,
             re.IGNORECASE
-        )
-
-        if match:
-
-            area = valid_area(
+        ):
+            value = valid_area(
                 match.group(1)
             )
 
-            if area:
-                return area
+            if (
+                value
+                and value not in values
+            ):
+                values.append(value)
 
-    return None
+    return values[:20]
 
 
-# --------------------------------------------------
-# STRUCTURED AREA
-# --------------------------------------------------
-
-def extract_structured_area(json_data):
+def structured_area_candidates(json_data):
+    candidates = []
 
     for item in walk_json(json_data):
 
@@ -429,49 +412,38 @@ def extract_structured_area(json_data):
             if key not in item:
                 continue
 
-            value = item.get(key)
+            raw = item.get(key)
 
-            if isinstance(value, dict):
-
-                candidate = (
-                    value.get("value")
-                    or
-                    value.get("minValue")
-                    or
-                    value.get("maxValue")
+            if isinstance(raw, dict):
+                raw = (
+                    raw.get("value")
+                    or raw.get("minValue")
+                    or raw.get("maxValue")
                 )
 
-            else:
-
-                candidate = value
-
-            number = number_to_int(
-                candidate
+            value = valid_area(
+                digits_to_int(raw)
             )
 
-            area = valid_area(number)
+            if (
+                value
+                and value not in candidates
+            ):
+                candidates.append(value)
 
-            if area:
-                return area
-
-    return None
+    return candidates
 
 
 # --------------------------------------------------
-# BEDROOMS
+# OTHER PROPERTY DATA
 # --------------------------------------------------
 
 def extract_bedrooms(text):
 
     patterns = [
-
         r"(\d+)\s*bedrooms?",
-
         r"(\d+)\s*beds?\b",
-
-        r"(\d+)\s*chambres?",
-
-        r"(\d+)\s*غرف"
+        r"(\d+)\s*chambres?"
     ]
 
     for pattern in patterns:
@@ -483,34 +455,19 @@ def extract_bedrooms(text):
         )
 
         if match:
+            value = int(match.group(1))
 
-            try:
-
-                value = int(
-                    match.group(1)
-                )
-
-                if 1 <= value <= 30:
-                    return value
-
-            except ValueError:
-                pass
+            if 1 <= value <= 30:
+                return value
 
     return None
 
 
-# --------------------------------------------------
-# BATHROOMS
-# --------------------------------------------------
-
 def extract_bathrooms(text):
 
     patterns = [
-
         r"(\d+)\s*bathrooms?",
-
         r"(\d+)\s*baths?\b",
-
         r"(\d+)\s*salles?\s*de\s*bain"
     ]
 
@@ -523,88 +480,27 @@ def extract_bathrooms(text):
         )
 
         if match:
+            value = int(match.group(1))
 
-            try:
-
-                value = int(
-                    match.group(1)
-                )
-
-                if 1 <= value <= 30:
-                    return value
-
-            except ValueError:
-                pass
+            if 1 <= value <= 30:
+                return value
 
     return None
 
-
-# --------------------------------------------------
-# ROOMS
-# --------------------------------------------------
-
-def extract_rooms(text):
-
-    patterns = [
-
-        r"(\d+)\s*rooms?",
-
-        r"(\d+)\s*pi[eè]ces?"
-    ]
-
-    for pattern in patterns:
-
-        match = re.search(
-            pattern,
-            text,
-            re.IGNORECASE
-        )
-
-        if match:
-
-            try:
-
-                value = int(
-                    match.group(1)
-                )
-
-                if 1 <= value <= 50:
-                    return value
-
-            except ValueError:
-                pass
-
-    return None
-
-
-# --------------------------------------------------
-# PROPERTY TYPE
-# --------------------------------------------------
 
 def detect_property_type(text):
 
     types = [
-
         ("villa", "Villa"),
-
         ("riad", "Riad"),
-
         ("apartment", "Apartment"),
-
         ("appartement", "Apartment"),
-
         ("penthouse", "Penthouse"),
-
         ("duplex", "Duplex"),
-
         ("studio", "Studio"),
-
         ("house", "House"),
-
         ("maison", "House"),
-
         ("land", "Land"),
-
         ("terrain", "Land")
     ]
 
@@ -618,44 +514,24 @@ def detect_property_type(text):
     return None
 
 
-# --------------------------------------------------
-# CITY
-# --------------------------------------------------
-
 def detect_city(text):
 
     cities = [
-
         ("marrakech", "Marrakech"),
-
         ("marrakesh", "Marrakech"),
-
         ("casablanca", "Casablanca"),
-
         ("rabat", "Rabat"),
-
         ("tangier", "Tangier"),
-
         ("tanger", "Tangier"),
-
         ("agadir", "Agadir"),
-
         ("fes", "Fes"),
-
         ("fez", "Fes"),
-
         ("meknes", "Meknes"),
-
         ("tetouan", "Tetouan"),
-
         ("essaouira", "Essaouira"),
-
         ("kenitra", "Kenitra"),
-
         ("el jadida", "El Jadida"),
-
         ("oujda", "Oujda"),
-
         ("mohammedia", "Mohammedia")
     ]
 
@@ -669,14 +545,9 @@ def detect_city(text):
     return None
 
 
-# --------------------------------------------------
-# MICRO LOCATION
-# --------------------------------------------------
-
 def detect_micro_location(text):
 
     locations = [
-
         (
             [
                 "route d'amizmiz",
@@ -686,7 +557,6 @@ def detect_micro_location(text):
             ],
             "Route d'Amizmiz"
         ),
-
         (
             [
                 "route de l'ourika",
@@ -696,50 +566,11 @@ def detect_micro_location(text):
             ],
             "Route de l'Ourika"
         ),
-
-        (
-            [
-                "route de casablanca",
-                "route casablanca"
-            ],
-            "Route de Casablanca"
-        ),
-
-        (
-            [
-                "hivernage"
-            ],
-            "Hivernage"
-        ),
-
-        (
-            [
-                "gueliz",
-                "guéliz"
-            ],
-            "Gueliz"
-        ),
-
-        (
-            [
-                "palmeraie"
-            ],
-            "Palmeraie"
-        ),
-
-        (
-            [
-                "agdal"
-            ],
-            "Agdal"
-        ),
-
-        (
-            [
-                "targa"
-            ],
-            "Targa"
-        )
+        (["hivernage"], "Hivernage"),
+        (["gueliz", "guéliz"], "Gueliz"),
+        (["palmeraie"], "Palmeraie"),
+        (["agdal"], "Agdal"),
+        (["targa"], "Targa")
     ]
 
     lower = text.lower()
@@ -754,28 +585,19 @@ def detect_micro_location(text):
     return None
 
 
-# --------------------------------------------------
-# DEVELOPMENT
-# --------------------------------------------------
-
 def detect_development(text):
 
-    known_developments = [
-
+    developments = [
         "Botanik Garden",
-
         "Argan Golf Resort",
-
         "Noria Golf",
-
         "Amelkis",
-
         "Al Maaden"
     ]
 
     lower = text.lower()
 
-    for development in known_developments:
+    for development in developments:
 
         if development.lower() in lower:
             return development
@@ -783,150 +605,23 @@ def detect_development(text):
     return None
 
 
-# --------------------------------------------------
-# PRICE / AREA CALCULATIONS
-# --------------------------------------------------
-
-def price_per_m2(
+def calculate_price_per_m2(
     price,
     area
 ):
-
     if not price or not area:
         return None
 
-    try:
-
-        return round(
-            price / area
-        )
-
-    except (
-        TypeError,
-        ZeroDivisionError
-    ):
-
-        return None
+    return round(price / area)
 
 
 # --------------------------------------------------
-# AREA CLASSIFICATION
-# --------------------------------------------------
-
-def classify_areas(
-    listing_area,
-    built_area,
-    plot_area,
-    structured_area
-):
-
-    result = {
-        "listing_area_m2":
-            listing_area,
-
-        "built_area_m2":
-            built_area,
-
-        "plot_area_m2":
-            plot_area,
-
-        "structured_area_m2":
-            structured_area,
-
-        "listing_area_type":
-            "unconfirmed",
-
-        "area_confidence":
-            "low"
-    }
-
-
-    if (
-        built_area
-        and
-        listing_area
-        and
-        built_area == listing_area
-    ):
-
-        result[
-            "listing_area_type"
-        ] = "built_area"
-
-        result[
-            "area_confidence"
-        ] = "high"
-
-
-    elif (
-        plot_area
-        and
-        listing_area
-        and
-        plot_area == listing_area
-    ):
-
-        result[
-            "listing_area_type"
-        ] = "plot_area"
-
-        result[
-            "area_confidence"
-        ] = "high"
-
-
-    elif (
-        built_area
-        and
-        plot_area
-        and
-        listing_area
-    ):
-
-        result[
-            "listing_area_type"
-        ] = "listing_area"
-
-        result[
-            "area_confidence"
-        ] = "medium"
-
-
-    elif plot_area and listing_area:
-
-        if plot_area != listing_area:
-
-            result[
-                "listing_area_type"
-            ] = "unconfirmed_area"
-
-            result[
-                "area_confidence"
-            ] = "medium"
-
-
-    elif built_area and listing_area:
-
-        result[
-            "listing_area_type"
-        ] = "built_area"
-
-        result[
-            "area_confidence"
-        ] = "medium"
-
-
-    return result
-
-
-# --------------------------------------------------
-# MARKET BENCHMARKS
+# BENCHMARK
 # --------------------------------------------------
 
 def load_market_benchmarks():
 
     try:
-
         base_dir = os.path.dirname(
             os.path.abspath(__file__)
         )
@@ -942,11 +637,9 @@ def load_market_benchmarks():
             "r",
             encoding="utf-8"
         ) as file:
-
             return json.load(file)
 
     except Exception:
-
         return {
             "version": "1.0",
             "currency": "MAD",
@@ -960,69 +653,39 @@ def find_market_benchmark(
     property_type
 ):
 
-    market_data = (
-        load_market_benchmarks()
-    )
+    data = load_market_benchmarks()
 
-    benchmarks = market_data.get(
+    for benchmark in data.get(
         "benchmarks",
         []
-    )
-
-    for benchmark in benchmarks:
+    ):
 
         if (
             city
-            and
-            benchmark.get("city")
-            and
-            city.lower()
-            !=
-            benchmark.get(
-                "city"
-            ).lower()
+            and benchmark.get("city")
+            and city.lower()
+            != benchmark["city"].lower()
         ):
             continue
-
 
         if (
             property_type
-            and
-            benchmark.get(
-                "property_type"
-            )
-            and
-            property_type.lower()
-            !=
-            benchmark.get(
-                "property_type"
-            ).lower()
+            and benchmark.get("property_type")
+            and property_type.lower()
+            != benchmark["property_type"].lower()
         ):
             continue
 
-
         if (
             micro_location
-            and
-            benchmark.get(
-                "micro_location"
-            )
-            and
-            micro_location.lower()
-            ==
-            benchmark.get(
-                "micro_location"
-            ).lower()
+            and benchmark.get("micro_location")
+            and micro_location.lower()
+            == benchmark["micro_location"].lower()
         ):
-
             return benchmark
 
     return None
 
-
-# --------------------------------------------------
-# SAFE MARKET ANALYSIS
-# --------------------------------------------------
 
 def analyse_market(
     property_data,
@@ -1030,210 +693,110 @@ def analyse_market(
 ):
 
     if not benchmark:
-
         return {
             "available": False,
-            "reason":
-                "No suitable local benchmark found."
+            "reason": "No suitable local benchmark found."
         }
-
 
     benchmark_m2 = benchmark.get(
         "benchmark_mad_m2"
     )
 
-
-    if not benchmark_m2:
-
-        return {
-            "available": False,
-            "reason":
-                "Benchmark value unavailable."
-        }
-
-
     built_area = property_data.get(
         "built_area_m2"
     )
 
-    listing_area = property_data.get(
-        "listing_area_m2"
+    price = property_data.get(
+        "price_mad"
     )
 
-    listing_area_type = property_data.get(
-        "listing_area_type"
-    )
-
-
-    valuation_area = None
-    valuation_area_type = None
-
-
-    if built_area:
-
-        valuation_area = built_area
-
-        valuation_area_type = (
-            "built_area"
-        )
-
-
-    elif (
-        listing_area
-        and
-        listing_area_type
-        == "built_area"
-    ):
-
-        valuation_area = listing_area
-
-        valuation_area_type = (
-            "built_area"
-        )
-
-
-    if valuation_area is None:
-
+    if not built_area:
         return {
-
             "available": False,
-
             "reason":
-                "Benchmark comparison paused because built area is not confirmed.",
-
+                "Market comparison paused until built/living area is confirmed.",
             "benchmark_mad_m2":
                 benchmark_m2,
-
             "benchmark_type":
-                benchmark.get(
-                    "benchmark_type"
-                ),
-
+                benchmark.get("benchmark_type"),
             "source":
-                benchmark.get(
-                    "source"
-                ),
-
+                benchmark.get("source"),
             "sample_size":
-                benchmark.get(
-                    "sample_size"
-                ),
-
-            "valuation_area":
-                None,
-
-            "valuation_area_type":
-                None
+                benchmark.get("sample_size")
         }
 
-
-    listing_m2 = property_data.get(
-        "price_per_built_m2_mad"
-    )
-
-
-    if not listing_m2:
-
+    if not price or not benchmark_m2:
         return {
             "available": False,
             "reason":
-                "Price per built m² could not be calculated."
+                "Insufficient verified data for market comparison."
         }
 
+    listing_m2 = calculate_price_per_m2(
+        price,
+        built_area
+    )
 
     difference = round(
         (
-            (
-                listing_m2
-                -
-                benchmark_m2
-            )
-            /
-            benchmark_m2
-        )
-        *
-        100,
+            (listing_m2 - benchmark_m2)
+            / benchmark_m2
+        ) * 100,
         1
     )
 
-
     if difference <= -15:
-
         position = (
             "Potentially below local asking benchmark"
         )
 
     elif difference <= -5:
-
         position = (
             "Below local asking benchmark"
         )
 
     elif difference < 5:
-
         position = (
             "Near local asking benchmark"
         )
 
     elif difference < 15:
-
         position = (
             "Above local asking benchmark"
         )
 
     else:
-
         position = (
             "Well above local asking benchmark"
         )
 
-
     return {
-
         "available": True,
-
         "benchmark_mad_m2":
             benchmark_m2,
-
         "benchmark_type":
-            benchmark.get(
-                "benchmark_type"
-            ),
-
+            benchmark.get("benchmark_type"),
         "source":
-            benchmark.get(
-                "source"
-            ),
-
+            benchmark.get("source"),
         "source_date":
-            benchmark.get(
-                "source_date"
-            ),
-
+            benchmark.get("source_date"),
         "sample_size":
-            benchmark.get(
-                "sample_size"
-            ),
-
-        "valuation_area":
-            valuation_area,
-
+            benchmark.get("sample_size"),
+        "valuation_area_m2":
+            built_area,
         "valuation_area_type":
-            valuation_area_type,
-
+            "built_area",
         "listing_mad_m2":
             listing_m2,
-
         "difference_percent":
             difference,
-
         "market_position":
             position
     }
 
 
 # --------------------------------------------------
-# MAIN SCANNER
+# SCAN
 # --------------------------------------------------
 
 @app.route(
@@ -1250,7 +813,6 @@ def scan_property():
         payload.get("url")
     )
 
-
     if not url:
 
         return jsonify({
@@ -1258,7 +820,6 @@ def scan_property():
             "error":
                 "No property URL supplied."
         }), 400
-
 
     if not url.startswith(
         ("http://", "https://")
@@ -1270,11 +831,9 @@ def scan_property():
                 "Invalid property URL."
         }), 400
 
-
     try:
 
         headers = {
-
             "User-Agent": (
                 "Mozilla/5.0 "
                 "(Windows NT 10.0; Win64; x64) "
@@ -1283,12 +842,9 @@ def scan_property():
                 "Chrome/138.0.0.0 "
                 "Safari/537.36"
             ),
-
             "Accept-Language":
-                "en-GB,en;q=0.9,"
-                "fr;q=0.8"
+                "en-GB,en;q=0.9,fr;q=0.8"
         }
-
 
         response = requests.get(
             url,
@@ -1299,24 +855,20 @@ def scan_property():
 
         response.raise_for_status()
 
-
         soup = BeautifulSoup(
             response.text,
             "html.parser"
         )
 
-
         title = ""
 
         if soup.title:
-
             title = clean_text(
                 soup.title.get_text(
                     " ",
                     strip=True
                 )
             )
-
 
         og_title = get_meta(
             soup,
@@ -1326,22 +878,17 @@ def scan_property():
         if og_title:
             title = og_title
 
-
         description = (
-
             get_meta(
                 soup,
                 name="description"
             )
-
             or
-
             get_meta(
                 soup,
                 prop="og:description"
             )
         )
-
 
         page_text = clean_text(
             soup.get_text(
@@ -1350,11 +897,9 @@ def scan_property():
             )
         )
 
-
         json_ld = get_json_ld(
             soup
         )
-
 
         combined_text = clean_text(
             " ".join([
@@ -1364,22 +909,36 @@ def scan_property():
             ])
         )
 
-
         # PRICE
 
-        price = (
-
-            extract_price_from_json(
+        structured_prices = (
+            structured_price_candidates(
                 json_ld
             )
+        )
 
-            or
+        metadata_prices = (
+            meta_price_candidates(
+                soup
+            )
+        )
 
-            extract_price_from_text(
+        visible_prices = (
+            visible_price_candidates(
                 combined_text
             )
         )
 
+        (
+            price,
+            price_source,
+            price_confidence,
+            price_candidates
+        ) = select_price(
+            structured_prices,
+            metadata_prices,
+            visible_prices
+        )
 
         # AREAS
 
@@ -1391,31 +950,35 @@ def scan_property():
             combined_text
         )
 
-        structured_area = (
-            extract_structured_area(
-                json_ld
-            )
-        )
-
-        listing_area = (
-            structured_area
-            or
-            extract_listing_area(
+        generic_areas = (
+            extract_all_generic_areas(
                 combined_text
             )
         )
 
-
-        area_data = classify_areas(
-
-            listing_area,
-            built_area,
-            plot_area,
-            structured_area
+        structured_areas = (
+            structured_area_candidates(
+                json_ld
+            )
         )
 
+        # Do NOT automatically call the first area built area.
+        listing_area = None
+        listing_area_type = "unconfirmed"
 
-        # PROPERTY DETAILS
+        if built_area:
+            listing_area = built_area
+            listing_area_type = "built_area"
+
+        elif structured_areas:
+            listing_area = structured_areas[0]
+            listing_area_type = "unconfirmed"
+
+        elif generic_areas:
+            listing_area = generic_areas[0]
+            listing_area_type = "unconfirmed"
+
+        # OTHER DATA
 
         bedrooms = extract_bedrooms(
             combined_text
@@ -1425,14 +988,8 @@ def scan_property():
             combined_text
         )
 
-        rooms = extract_rooms(
+        property_type = detect_property_type(
             combined_text
-        )
-
-        property_type = (
-            detect_property_type(
-                combined_text
-            )
         )
 
         city = detect_city(
@@ -1451,182 +1008,177 @@ def scan_property():
             )
         )
 
-
-        # PRICE PER M2
-
-        price_per_listing_m2 = (
-            price_per_m2(
-                price,
-                listing_area
-            )
-        )
-
-        price_per_plot_m2 = (
-            price_per_m2(
-                price,
-                plot_area
-            )
-        )
+        # PRICE/M2
 
         price_per_built_m2 = (
-            price_per_m2(
+            calculate_price_per_m2(
                 price,
                 built_area
             )
         )
 
+        price_per_plot_m2 = (
+            calculate_price_per_m2(
+                price,
+                plot_area
+            )
+        )
+
+        price_per_listing_m2 = None
+
+        if (
+            listing_area
+            and listing_area_type
+            != "unconfirmed"
+        ):
+            price_per_listing_m2 = (
+                calculate_price_per_m2(
+                    price,
+                    listing_area
+                )
+            )
 
         property_data = {
-
-            "city":
-                city,
-
+            "city": city,
             "micro_location":
                 micro_location,
-
             "development":
                 development,
-
             "property_type":
                 property_type,
 
             "price_mad":
                 price,
+            "price_source":
+                price_source,
+            "price_confidence":
+                price_confidence,
 
             "bedrooms":
                 bedrooms,
-
             "bathrooms":
                 bathrooms,
 
-            "rooms":
-                rooms,
-
             "listing_area_m2":
                 listing_area,
-
             "listing_area_type":
-                area_data[
-                    "listing_area_type"
-                ],
+                listing_area_type,
 
             "built_area_m2":
                 built_area,
-
             "plot_area_m2":
                 plot_area,
 
-            "area_confidence":
-                area_data[
-                    "area_confidence"
-                ],
+            "area_candidates_m2":
+                generic_areas,
+            "structured_area_candidates_m2":
+                structured_areas,
 
             "price_per_listing_m2_mad":
                 price_per_listing_m2,
-
             "price_per_built_m2_mad":
                 price_per_built_m2,
-
             "price_per_plot_m2_mad":
                 price_per_plot_m2
         }
 
-
         # BENCHMARK
 
-        benchmark = (
-            find_market_benchmark(
-                city,
-                micro_location,
-                property_type
-            )
-        )
-
-
-        market_analysis = (
-            analyse_market(
-                property_data,
-                benchmark
-            )
-        )
-
-
-        # DATA CONFIDENCE
-
-        important_fields = [
-
-            price,
+        benchmark = find_market_benchmark(
             city,
-            property_type,
             micro_location,
-            listing_area,
-            plot_area,
-            bedrooms
-        ]
-
-
-        detected = sum(
-            value is not None
-            for value
-            in important_fields
+            property_type
         )
 
+        market_analysis = analyse_market(
+            property_data,
+            benchmark
+        )
 
-        data_confidence = round(
-            detected
-            /
-            len(
-                important_fields
-            )
-            *
+        # CONFIDENCE
+        #
+        # Weighted rather than simply counting fields.
+
+        score = 0
+
+        if price:
+            if price_confidence == "high":
+                score += 25
+            elif price_confidence == "medium":
+                score += 18
+            else:
+                score += 10
+
+        if city:
+            score += 10
+
+        if micro_location:
+            score += 15
+
+        if property_type:
+            score += 10
+
+        if bedrooms:
+            score += 5
+
+        if built_area:
+            score += 25
+
+        if plot_area:
+            score += 10
+
+        data_confidence = min(
+            score,
             100
         )
 
+        # VERIFICATION STATUS
 
-        # STATUS
-
-        if market_analysis.get(
-            "available"
+        if (
+            price
+            and price_confidence
+            in ("high", "medium")
+            and built_area
         ):
-
-            status = (
-                market_analysis.get(
-                    "market_position"
-                )
+            verification_status = (
+                "CORE PROPERTY DATA VERIFIED"
             )
 
         elif (
             price
-            and
-            listing_area
+            and price_confidence
+            in ("high", "medium")
         ):
-
-            status = (
-                "PROPERTY DATA VERIFIED"
+            verification_status = (
+                "PRICE VERIFIED - AREA UNCONFIRMED"
             )
 
         else:
-
-            status = (
-                "REVIEW LISTING"
+            verification_status = (
+                "REVIEW PROPERTY DATA"
             )
 
+        if market_analysis.get(
+            "available"
+        ):
+            radar_status = (
+                market_analysis.get(
+                    "market_position"
+                )
+            )
+        else:
+            radar_status = (
+                verification_status
+            )
 
         return jsonify({
-
             "success": True,
 
             "source": {
-
-                "url":
-                    url,
-
+                "url": url,
                 "final_url":
                     response.url,
-
-                "title":
-                    title,
-
+                "title": title,
                 "description":
                     description
             },
@@ -1638,46 +1190,44 @@ def scan_property():
                 market_analysis,
 
             "radar": {
-
                 "status":
-                    status,
-
+                    radar_status,
+                "verification_status":
+                    verification_status,
                 "data_confidence":
                     data_confidence,
-
                 "radar_score":
                     None
+            },
+
+            "debug": {
+                "price_candidates":
+                    price_candidates,
+                "generic_area_candidates_m2":
+                    generic_areas,
+                "structured_area_candidates_m2":
+                    structured_areas
             }
         })
-
 
     except requests.RequestException as error:
 
         return jsonify({
-
             "success": False,
-
             "error":
                 "Property listing could not be retrieved.",
-
             "details":
                 str(error)
-
         }), 502
-
 
     except Exception as error:
 
         return jsonify({
-
             "success": False,
-
             "error":
                 "Property scan failed.",
-
             "details":
                 str(error)
-
         }), 500
 
 
