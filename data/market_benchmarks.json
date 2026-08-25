@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "currency": "MAD",
+  "benchmarks": [
+    {
+      "city": "Marrakech",
+      "micro_location": "Route d'Amizmiz",
+      "property_type": "Villa",
+      "benchmark_mad_m2": 18000,
+      "sample_size": 53,
+      "benchmark_type": "asking_price",
+      "source": "Sarout",
+      "source_date": "2026-08",
+      "confidence": "medium",
+      "notes": "Broad Route d'Amizmiz asking-price benchmark. Must be adjusted for distance, land size, property condition and exact micro-location."
+    }
+  ]
+}
