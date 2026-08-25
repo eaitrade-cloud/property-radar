@@ -1,2 +1,14 @@
+[project]
+name = "property-radar"
+version = "1.0.0"
+description = "Morocco Property Intelligence"
+requires-python = ">=3.12"
+dependencies = [
+    "flask",
+    "flask-cors",
+    "requests",
+    "beautifulsoup4"
+]
+
 [tool.vercel]
-entrypoint = "api:app"
+entrypoint = "api.py"
