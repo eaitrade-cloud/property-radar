@@ -472,8 +472,6 @@ footer {
 
 <script>
 
-const API_URL = "https://property-radar-beige.vercel.app";
-
 async function scanProperty() {
 
   const input = document.getElementById("propertyUrl");
@@ -504,7 +502,7 @@ async function scanProperty() {
 
   try {
 
-    const response = await fetch(API_URL + "/scan", {
+    const response = await fetch("/api/scan", {
       method: "POST",
 
       headers: {
@@ -516,6 +514,19 @@ async function scanProperty() {
       })
     });
 
+    const contentType = response.headers.get("content-type") || "";
+
+    if (!contentType.includes("application/json")) {
+      const responseText = await response.text();
+
+      throw new Error(
+        "Server returned an unexpected response. HTTP " +
+        response.status +
+        ". " +
+        responseText.substring(0, 100)
+      );
+    }
+
     const data = await response.json();
 
     if (!response.ok || data.success === false) {
@@ -523,6 +534,7 @@ async function scanProperty() {
       throw new Error(
         data.error ||
         data.detail ||
+        data.details ||
         "Property scan failed."
       );
     }
@@ -534,7 +546,7 @@ async function scanProperty() {
       data.location || "Morocco";
 
     document.getElementById("resultVerdict").textContent =
-      data.verdict || "ANALYSIS COMPLETE";
+      data.verdict || "LISTING RETRIEVED";
 
     document.getElementById("resultScore").textContent =
       data.score ?? "--";
@@ -543,18 +555,24 @@ async function scanProperty() {
       data.asking_price || data.price || "Not detected";
 
     document.getElementById("pricePerSqm").textContent =
-      data.price_per_sqm || "Calculating";
+      data.price_per_sqm || "Not calculated";
 
     document.getElementById("marketComparison").textContent =
-      data.market_comparison || "Analysing";
+      data.market_comparison || "Not analysed";
 
     document.getElementById("radarSignal").textContent =
       data.radar_signal || "Review listing";
 
-    if (data.analysis) {
+    const analysis =
+      data.analysis ||
+      data.description ||
+      data.content ||
+      "";
+
+    if (analysis) {
 
       document.getElementById("analysisText").textContent =
-        data.analysis;
+        analysis;
 
       analysisBox.style.display = "block";
     }
@@ -582,6 +600,7 @@ async function scanProperty() {
     button.textContent = "SCAN PROPERTY";
   }
 }
+
 
 document
   .getElementById("propertyUrl")
