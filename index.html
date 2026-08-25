@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <title>Property Radar | Morocco Property Intelligence</title>
 
 <style>
@@ -115,6 +116,11 @@ h1 span {
   cursor: pointer;
 }
 
+.scanner button:disabled {
+  opacity: .6;
+  cursor: wait;
+}
+
 .micro {
   margin-top: 14px;
   color: #63778e;
@@ -194,6 +200,7 @@ h1 span {
   justify-content: center;
   font-size: 27px;
   font-weight: bold;
+  flex-shrink: 0;
 }
 
 .demo h2 {
@@ -235,10 +242,39 @@ h1 span {
 
 .metric strong {
   font-size: 19px;
+  word-break: break-word;
 }
 
 .warning {
   color: #ffb95c;
+}
+
+.analysis-box {
+  display: none;
+  margin-top: 20px;
+  background: #07111f;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.analysis-box h3 {
+  margin-bottom: 12px;
+}
+
+.analysis-box p {
+  color: #9eafc3;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.error-box {
+  display: none;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px solid #7d3941;
+  background: rgba(160,50,60,.08);
+  border-radius: 10px;
+  color: #ff9da6;
 }
 
 footer {
@@ -266,6 +302,7 @@ footer {
 
   .demo-top {
     gap: 25px;
+    align-items: flex-start;
   }
 }
 </style>
@@ -294,13 +331,17 @@ footer {
   </p>
 
   <div class="scanner">
-    <input id="propertyUrl"
-           type="text"
-           placeholder="Paste a property listing link...">
 
-    <button onclick="scanProperty()">
+    <input
+      id="propertyUrl"
+      type="url"
+      placeholder="Paste a property listing link..."
+    >
+
+    <button id="scanButton" onclick="scanProperty()">
       SCAN PROPERTY
     </button>
+
   </div>
 
   <div class="micro">
@@ -320,7 +361,9 @@ footer {
 
     <div class="card">
       <div class="number">01</div>
+
       <h3>Price Intelligence</h3>
+
       <p>
         Compare asking price, price per square metre and similar
         properties in the same market.
@@ -329,7 +372,9 @@ footer {
 
     <div class="card">
       <div class="number">02</div>
+
       <h3>Listing Radar</h3>
+
       <p>
         Identify possible duplicate adverts, pricing differences
         and signals that deserve investigation.
@@ -338,7 +383,9 @@ footer {
 
     <div class="card">
       <div class="number">03</div>
+
       <h3>Buyer Intelligence</h3>
+
       <p>
         See investment indicators, negotiation points, questions
         to ask and a simple Radar Score.
@@ -352,16 +399,22 @@ footer {
     <div class="demo-top">
 
       <div>
-        <h2>Example Radar Scan</h2>
-        <div class="location">
+
+        <h2 id="resultTitle">
+          Example Radar Scan
+        </h2>
+
+        <div class="location" id="resultLocation">
           2-bedroom apartment • Marrakech
         </div>
-        <div class="verdict">
+
+        <div class="verdict" id="resultVerdict">
           POSSIBLE OPPORTUNITY
         </div>
+
       </div>
 
-      <div class="score">
+      <div class="score" id="resultScore">
         82
       </div>
 
@@ -371,25 +424,43 @@ footer {
 
       <div class="metric">
         <small>Asking price</small>
-        <strong>1,450,000 MAD</strong>
+        <strong id="askingPrice">
+          1,450,000 MAD
+        </strong>
       </div>
 
       <div class="metric">
         <small>Price / m²</small>
-        <strong>14,500 MAD</strong>
+        <strong id="pricePerSqm">
+          14,500 MAD
+        </strong>
       </div>
 
       <div class="metric">
         <small>Market comparison</small>
-        <strong>−8%</strong>
+        <strong id="marketComparison">
+          −8%
+        </strong>
       </div>
 
       <div class="metric">
         <small>Radar signal</small>
-        <strong class="warning">Check seller</strong>
+        <strong class="warning" id="radarSignal">
+          Check seller
+        </strong>
       </div>
 
     </div>
+
+    <div class="analysis-box" id="analysisBox">
+
+      <h3>Property Analysis</h3>
+
+      <p id="analysisText"></p>
+
+    </div>
+
+    <div class="error-box" id="errorBox"></div>
 
   </div>
 
@@ -400,21 +471,128 @@ footer {
 </footer>
 
 <script>
-function scanProperty() {
 
-  const url = document.getElementById("propertyUrl").value;
+const API_URL = "https://property-radar-beige.vercel.app";
 
-  if (!url.trim()) {
+async function scanProperty() {
+
+  const input = document.getElementById("propertyUrl");
+  const button = document.getElementById("scanButton");
+  const result = document.getElementById("result");
+  const errorBox = document.getElementById("errorBox");
+  const analysisBox = document.getElementById("analysisBox");
+
+  const url = input.value.trim();
+
+  if (!url) {
     alert("Paste a property listing first.");
     return;
   }
 
-  const result = document.getElementById("result");
+  try {
+    new URL(url);
+  } catch {
+    alert("Please enter a valid property listing URL.");
+    return;
+  }
 
-  result.scrollIntoView({
-    behavior: "smooth"
-  });
+  button.disabled = true;
+  button.textContent = "SCANNING...";
+
+  errorBox.style.display = "none";
+  analysisBox.style.display = "none";
+
+  try {
+
+    const response = await fetch(API_URL + "/scan", {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json"
+      },
+
+      body: JSON.stringify({
+        url: url
+      })
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.success === false) {
+
+      throw new Error(
+        data.error ||
+        data.detail ||
+        "Property scan failed."
+      );
+    }
+
+    document.getElementById("resultTitle").textContent =
+      data.title || "Property Radar Scan";
+
+    document.getElementById("resultLocation").textContent =
+      data.location || "Morocco";
+
+    document.getElementById("resultVerdict").textContent =
+      data.verdict || "ANALYSIS COMPLETE";
+
+    document.getElementById("resultScore").textContent =
+      data.score ?? "--";
+
+    document.getElementById("askingPrice").textContent =
+      data.asking_price || data.price || "Not detected";
+
+    document.getElementById("pricePerSqm").textContent =
+      data.price_per_sqm || "Calculating";
+
+    document.getElementById("marketComparison").textContent =
+      data.market_comparison || "Analysing";
+
+    document.getElementById("radarSignal").textContent =
+      data.radar_signal || "Review listing";
+
+    if (data.analysis) {
+
+      document.getElementById("analysisText").textContent =
+        data.analysis;
+
+      analysisBox.style.display = "block";
+    }
+
+    result.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+  } catch (error) {
+
+    errorBox.textContent =
+      "Scan failed: " + error.message;
+
+    errorBox.style.display = "block";
+
+    result.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
+
+  } finally {
+
+    button.disabled = false;
+    button.textContent = "SCAN PROPERTY";
+  }
 }
+
+document
+  .getElementById("propertyUrl")
+  .addEventListener("keydown", function(event) {
+
+    if (event.key === "Enter") {
+      scanProperty();
+    }
+
+  });
+
 </script>
 
 </body>
