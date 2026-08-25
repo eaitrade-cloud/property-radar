@@ -100,6 +100,7 @@ h1 span {
   color: white;
   font-size: 16px;
   padding: 17px;
+  min-width: 0;
 }
 
 .scanner input::placeholder {
@@ -311,13 +312,20 @@ footer {
 <body>
 
 <nav>
-  <div class="logo">PROPERTY <span>RADAR</span></div>
-  <div class="nav-right">Morocco Property Intelligence</div>
+  <div class="logo">
+    PROPERTY <span>RADAR</span>
+  </div>
+
+  <div class="nav-right">
+    Morocco Property Intelligence
+  </div>
 </nav>
 
 <section class="hero">
 
-  <div class="tag">BUY WITH DATA, NOT GUESSWORK</div>
+  <div class="tag">
+    BUY WITH DATA, NOT GUESSWORK
+  </div>
 
   <h1>
     See What The Property
@@ -338,7 +346,10 @@ footer {
       placeholder="Paste a property listing link..."
     >
 
-    <button id="scanButton" onclick="scanProperty()">
+    <button
+      id="scanButton"
+      onclick="scanProperty()"
+    >
       SCAN PROPERTY
     </button>
 
@@ -354,7 +365,10 @@ footer {
 
   <div class="section-title">
     <h2>One listing. A different view.</h2>
-    <p>Property Radar turns an advert into buyer intelligence.</p>
+
+    <p>
+      Property Radar turns an advert into buyer intelligence.
+    </p>
   </div>
 
   <div class="grid">
@@ -424,6 +438,7 @@ footer {
 
       <div class="metric">
         <small>Asking price</small>
+
         <strong id="askingPrice">
           1,450,000 MAD
         </strong>
@@ -431,6 +446,7 @@ footer {
 
       <div class="metric">
         <small>Price / m²</small>
+
         <strong id="pricePerSqm">
           14,500 MAD
         </strong>
@@ -438,6 +454,7 @@ footer {
 
       <div class="metric">
         <small>Market comparison</small>
+
         <strong id="marketComparison">
           −8%
         </strong>
@@ -445,6 +462,7 @@ footer {
 
       <div class="metric">
         <small>Radar signal</small>
+
         <strong class="warning" id="radarSignal">
           Check seller
         </strong>
@@ -454,13 +472,18 @@ footer {
 
     <div class="analysis-box" id="analysisBox">
 
-      <h3>Property Analysis</h3>
+      <h3>
+        Property Analysis
+      </h3>
 
       <p id="analysisText"></p>
 
     </div>
 
-    <div class="error-box" id="errorBox"></div>
+    <div
+      class="error-box"
+      id="errorBox"
+    ></div>
 
   </div>
 
@@ -474,62 +497,129 @@ footer {
 
 async function scanProperty() {
 
-  const input = document.getElementById("propertyUrl");
-  const button = document.getElementById("scanButton");
-  const result = document.getElementById("result");
-  const errorBox = document.getElementById("errorBox");
-  const analysisBox = document.getElementById("analysisBox");
+  const input =
+    document.getElementById("propertyUrl");
 
-  const url = input.value.trim();
+  const button =
+    document.getElementById("scanButton");
+
+  const result =
+    document.getElementById("result");
+
+  const errorBox =
+    document.getElementById("errorBox");
+
+  const analysisBox =
+    document.getElementById("analysisBox");
+
+  const url =
+    input.value.trim();
+
 
   if (!url) {
-    alert("Paste a property listing first.");
+
+    alert(
+      "Paste a property listing first."
+    );
+
     return;
   }
 
+
   try {
+
     new URL(url);
+
   } catch {
-    alert("Please enter a valid property listing URL.");
+
+    alert(
+      "Please enter a valid property listing URL."
+    );
+
     return;
   }
+
 
   button.disabled = true;
-  button.textContent = "SCANNING...";
 
-  errorBox.style.display = "none";
-  analysisBox.style.display = "none";
+  button.textContent =
+    "SCANNING...";
+
+
+  errorBox.style.display =
+    "none";
+
+  analysisBox.style.display =
+    "none";
+
+
+  document.getElementById(
+    "resultVerdict"
+  ).textContent =
+    "SCANNING LISTING";
+
+
+  document.getElementById(
+    "resultScore"
+  ).textContent =
+    "...";
+
 
   try {
 
-    const response = await fetch("/api/scan", {
-      method: "POST",
+    const response =
+      await fetch(
+        "/api/scan",
+        {
+          method: "POST",
 
-      headers: {
-        "Content-Type": "application/json"
-      },
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
 
-      body: JSON.stringify({
-        url: url
-      })
-    });
+          body: JSON.stringify({
+            url: url
+          })
+        }
+      );
 
-    const contentType = response.headers.get("content-type") || "";
 
-    if (!contentType.includes("application/json")) {
-      const responseText = await response.text();
+    const contentType =
+      response.headers.get(
+        "content-type"
+      ) || "";
+
+
+    if (
+      !contentType.includes(
+        "application/json"
+      )
+    ) {
+
+      const responseText =
+        await response.text();
 
       throw new Error(
-        "Server returned an unexpected response. HTTP " +
+        "Server returned HTTP " +
         response.status +
         ". " +
-        responseText.substring(0, 100)
+        responseText.substring(
+          0,
+          120
+        )
       );
     }
 
-    const data = await response.json();
 
-    if (!response.ok || data.success === false) {
+    const data =
+      await response.json();
+
+
+    if (
+      !response.ok ||
+      data.success === false
+    ) {
 
       throw new Error(
         data.error ||
@@ -539,78 +629,290 @@ async function scanProperty() {
       );
     }
 
-    document.getElementById("resultTitle").textContent =
-      data.title || "Property Radar Scan";
 
-    document.getElementById("resultLocation").textContent =
-      data.location || "Morocco";
+    const property =
+      data.property || {};
 
-    document.getElementById("resultVerdict").textContent =
-      data.verdict || "LISTING RETRIEVED";
+    const source =
+      data.source || {};
 
-    document.getElementById("resultScore").textContent =
-      data.score ?? "--";
+    const radar =
+      data.radar || {};
 
-    document.getElementById("askingPrice").textContent =
-      data.asking_price || data.price || "Not detected";
 
-    document.getElementById("pricePerSqm").textContent =
-      data.price_per_sqm || "Not calculated";
+    document.getElementById(
+      "resultTitle"
+    ).textContent =
+      source.title ||
+      "Property Radar Scan";
 
-    document.getElementById("marketComparison").textContent =
-      data.market_comparison || "Not analysed";
 
-    document.getElementById("radarSignal").textContent =
-      data.radar_signal || "Review listing";
+    const locationParts = [];
 
-    const analysis =
-      data.analysis ||
-      data.description ||
-      data.content ||
-      "";
 
-    if (analysis) {
+    if (
+      property.property_type
+    ) {
 
-      document.getElementById("analysisText").textContent =
-        analysis;
-
-      analysisBox.style.display = "block";
+      locationParts.push(
+        property.property_type
+      );
     }
+
+
+    if (
+      property.bedrooms
+    ) {
+
+      locationParts.push(
+        property.bedrooms +
+        " bedrooms"
+      );
+    }
+
+
+    if (
+      property.city
+    ) {
+
+      locationParts.push(
+        property.city
+      );
+    }
+
+
+    document.getElementById(
+      "resultLocation"
+    ).textContent =
+      locationParts.length
+        ? locationParts.join(" • ")
+        : "Morocco";
+
+
+    document.getElementById(
+      "resultVerdict"
+    ).textContent =
+      radar.status ||
+      "LISTING RETRIEVED";
+
+
+    document.getElementById(
+      "resultScore"
+    ).textContent =
+      radar.data_confidence ??
+      "--";
+
+
+    document.getElementById(
+      "askingPrice"
+    ).textContent =
+      property.price_mad
+        ? Number(
+            property.price_mad
+          ).toLocaleString() +
+          " MAD"
+        : "Not detected";
+
+
+    document.getElementById(
+      "pricePerSqm"
+    ).textContent =
+      property.price_per_m2_mad
+        ? Number(
+            property.price_per_m2_mad
+          ).toLocaleString() +
+          " MAD"
+        : "Not calculated";
+
+
+    document.getElementById(
+      "marketComparison"
+    ).textContent =
+      "Not analysed";
+
+
+    document.getElementById(
+      "radarSignal"
+    ).textContent =
+      radar.status ||
+      "Review listing";
+
+
+    const analysisParts = [];
+
+
+    if (
+      property.property_type
+    ) {
+
+      analysisParts.push(
+        "Property type: " +
+        property.property_type
+      );
+    }
+
+
+    if (
+      property.city
+    ) {
+
+      analysisParts.push(
+        "Location: " +
+        property.city
+      );
+    }
+
+
+    if (
+      property.area_m2
+    ) {
+
+      analysisParts.push(
+        "Area: " +
+        property.area_m2 +
+        " m²"
+      );
+    }
+
+
+    if (
+      property.bedrooms
+    ) {
+
+      analysisParts.push(
+        "Bedrooms: " +
+        property.bedrooms
+      );
+    }
+
+
+    if (
+      property.price_mad
+    ) {
+
+      analysisParts.push(
+        "Asking price: " +
+        Number(
+          property.price_mad
+        ).toLocaleString() +
+        " MAD"
+      );
+    }
+
+
+    if (
+      property.price_per_m2_mad
+    ) {
+
+      analysisParts.push(
+        "Price per m²: " +
+        Number(
+          property.price_per_m2_mad
+        ).toLocaleString() +
+        " MAD"
+      );
+    }
+
+
+    if (
+      radar.data_confidence !==
+      undefined
+    ) {
+
+      analysisParts.push(
+        "Data confidence: " +
+        radar.data_confidence +
+        "%"
+      );
+    }
+
+
+    if (
+      source.description
+    ) {
+
+      analysisParts.push(
+        "\nListing description:\n" +
+        source.description
+      );
+    }
+
+
+    if (
+      analysisParts.length
+    ) {
+
+      document.getElementById(
+        "analysisText"
+      ).textContent =
+        analysisParts.join("\n");
+
+      analysisBox.style.display =
+        "block";
+    }
+
 
     result.scrollIntoView({
       behavior: "smooth",
       block: "start"
     });
+
 
   } catch (error) {
 
     errorBox.textContent =
-      "Scan failed: " + error.message;
+      "Scan failed: " +
+      error.message;
 
-    errorBox.style.display = "block";
+    errorBox.style.display =
+      "block";
+
+
+    document.getElementById(
+      "resultVerdict"
+    ).textContent =
+      "SCAN FAILED";
+
+
+    document.getElementById(
+      "resultScore"
+    ).textContent =
+      "--";
+
 
     result.scrollIntoView({
       behavior: "smooth",
       block: "start"
     });
 
+
   } finally {
 
     button.disabled = false;
-    button.textContent = "SCAN PROPERTY";
+
+    button.textContent =
+      "SCAN PROPERTY";
   }
 }
 
 
 document
-  .getElementById("propertyUrl")
-  .addEventListener("keydown", function(event) {
+  .getElementById(
+    "propertyUrl"
+  )
+  .addEventListener(
+    "keydown",
+    function(event) {
 
-    if (event.key === "Enter") {
-      scanProperty();
+      if (
+        event.key === "Enter"
+      ) {
+
+        scanProperty();
+      }
+
     }
-
-  });
+  );
 
 </script>
 
